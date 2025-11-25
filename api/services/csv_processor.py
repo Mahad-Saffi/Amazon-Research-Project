@@ -22,6 +22,21 @@ class CSVProcessor:
     """Process CSV files in memory without writing intermediate files"""
     
     @staticmethod
+    def save_to_csv(data: List[Dict[str, Any]], filename: str) -> None:
+        """Save data to CSV file in results folder"""
+        from pathlib import Path
+        results_dir = Path("results")
+        results_dir.mkdir(exist_ok=True)
+        filepath = results_dir / filename
+        
+        if data:
+            fieldnames = list(data[0].keys())
+            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(data)
+    
+    @staticmethod
     def parse_csv_content(content: bytes) -> List[Dict[str, Any]]:
         """Parse CSV bytes into list of dictionaries"""
         text = content.decode('utf-8-sig')

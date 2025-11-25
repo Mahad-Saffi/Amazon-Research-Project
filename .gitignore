@@ -28,3 +28,4 @@ Thumbs.db
 # Results (keep folder, ignore contents)
 results/*.csv
 results/*.json
+results/*

@@ -250,6 +250,57 @@
             color: #666;
         }
         
+        .controls {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            background: #f9f9f9;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .control-group label {
+            margin: 0;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .control-group select {
+            padding: 6px 10px;
+            border: 1px solid black;
+            font-size: 14px;
+        }
+        
+        #resultCount {
+            font-weight: bold;
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid black;
+        }
+        
+        .brand-status-branded {
+            background: #ffe0e0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #c00;
+        }
+        
+        .brand-status-non-branded {
+            background: #e0ffe0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #0a0;
+        }
+        
         .saved-file {
             margin-top: 10px;
             padding: 10px;
@@ -328,6 +379,32 @@
         <div class="summary" id="summary"></div>
         
         <h2>Keyword Evaluations</h2>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="sortBy">Sort by:</label>
+                <select id="sortBy">
+                    <option value="relevance">Relevance Score (High to Low)</option>
+                    <option value="volume">Search Volume (High to Low)</option>
+                    <option value="relevance-asc">Relevance Score (Low to High)</option>
+                    <option value="volume-asc">Search Volume (Low to High)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="filterBrand">Filter:</label>
+                <select id="filterBrand">
+                    <option value="all">All Keywords</option>
+                    <option value="non-branded">Non-Branded Only</option>
+                    <option value="branded">Branded Only</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <span id="resultCount">0 results</span>
+            </div>
+        </div>
+        
         <div class="table-container">
             <table id="resultsTable">
                 <thead id="tableHead"></thead>
@@ -455,8 +532,11 @@
         function getProgressDetails(percent) {
             if (percent < 15) return 'Reading and parsing CSV files...';
             if (percent < 25) return 'Removing duplicate keywords...';
-            if (percent < 35) return 'Calculating relevancy scores...';
-            if (percent < 45) return 'Extracting root keywords from data...';
+            if (percent < 30) return 'Calculating relevancy scores...';
+            if (percent < 33) return 'Extracting root keywords from data...';
+            if (percent < 36) return 'Detecting branded keywords with AI...';
+            if (percent < 39) return 'Verifying brand classifications...';
+            if (percent < 45) return 'Filtering out branded keywords...';
             if (percent < 55) return 'Fetching product data from Amazon...';
             if (percent < 65) return 'Analyzing product with AI...';
             if (percent < 85) return 'Evaluating keyword relevance (this may take a moment)...';
@@ -465,9 +545,13 @@
             return 'Complete!';
         }
         
+        let allEvaluations = [];
+        let currentSort = 'relevance';
+        let currentFilter = 'all';
+        
         function displayResults(data) {
             const metadata = data.metadata || {};
-            const evaluations = data.keyword_evaluations || [];
+            allEvaluations = data.keyword_evaluations || [];
             const summary = data.product_summary || [];
             
             // Show saved file info or warning
@@ -491,6 +575,7 @@
                 <div class="metadata-item"><strong>ASIN/URL:</strong> ${escapeHtml(metadata.asin_or_url || 'N/A')}</div>
                 <div class="metadata-item"><strong>Marketplace:</strong> ${escapeHtml(metadata.marketplace || 'N/A')}</div>
                 <div class="metadata-item"><strong>Keywords Evaluated:</strong> ${metadata.keywords_final || 0}</div>
+                <div class="metadata-item"><strong>Branded Keywords Removed:</strong> ${metadata.branded_keywords_removed || 0}</div>
                 <div class="metadata-item"><strong>Design Rows Processed:</strong> ${metadata.design_rows_filtered || 0}</div>
                 <div class="metadata-item"><strong>Revenue Rows Processed:</strong> ${metadata.revenue_rows_filtered || 0}</div>
                 <div class="metadata-item"><strong>Top Root Keywords:</strong> ${(metadata.top_10_roots || []).join(', ')}</div>
@@ -517,32 +602,104 @@
                 document.getElementById('summary').style.display = 'none';
             }
             
-            // Display table
-            if (evaluations.length > 0) {
-                const columns = Object.keys(evaluations[0]);
-                
-                // Create table header
-                const headerHtml = '<tr>' + columns.map(col => `<th>${escapeHtml(col)}</th>`).join('') + '</tr>';
-                document.getElementById('tableHead').innerHTML = headerHtml;
-                
-                // Create table body
-                const bodyHtml = evaluations.map(row => {
-                    return '<tr>' + columns.map(col => {
-                        const value = row[col];
-                        return `<td>${escapeHtml(String(value || ''))}</td>`;
-                    }).join('') + '</tr>';
-                }).join('');
-                document.getElementById('tableBody').innerHTML = bodyHtml;
-            } else {
-                document.getElementById('tableHead').innerHTML = '';
-                document.getElementById('tableBody').innerHTML = '<tr><td class="no-data">No data available</td></tr>';
-            }
+            // Set up event listeners for sorting and filtering
+            document.getElementById('sortBy').addEventListener('change', function(e) {
+                currentSort = e.target.value;
+                renderTable();
+            });
+            
+            document.getElementById('filterBrand').addEventListener('change', function(e) {
+                currentFilter = e.target.value;
+                renderTable();
+            });
+            
+            // Initial render
+            renderTable();
             
             // Show results
             document.getElementById('results').style.display = 'block';
             
             // Scroll to results
             document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function renderTable() {
+            if (allEvaluations.length === 0) {
+                document.getElementById('tableHead').innerHTML = '';
+                document.getElementById('tableBody').innerHTML = '<tr><td class="no-data">No data available</td></tr>';
+                document.getElementById('resultCount').textContent = '0 results';
+                return;
+            }
+            
+            // Filter data
+            let filteredData = [...allEvaluations];
+            if (currentFilter === 'branded') {
+                filteredData = filteredData.filter(row => row.brand_status === 'Branded');
+            } else if (currentFilter === 'non-branded') {
+                filteredData = filteredData.filter(row => row.brand_status === 'Non-Branded');
+            }
+            
+            // Sort data
+            filteredData.sort((a, b) => {
+                if (currentSort === 'relevance') {
+                    // For branded keywords (relevance_score = 0), sort by search volume instead
+                    const scoreA = a.relevance_score || 0;
+                    const scoreB = b.relevance_score || 0;
+                    if (scoreA === 0 && scoreB === 0) {
+                        return parseInt(b['Search Volume'] || 0) - parseInt(a['Search Volume'] || 0);
+                    }
+                    return scoreB - scoreA;
+                } else if (currentSort === 'relevance-asc') {
+                    const scoreA = a.relevance_score || 0;
+                    const scoreB = b.relevance_score || 0;
+                    if (scoreA === 0 && scoreB === 0) {
+                        return parseInt(a['Search Volume'] || 0) - parseInt(b['Search Volume'] || 0);
+                    }
+                    return scoreA - scoreB;
+                } else if (currentSort === 'volume') {
+                    return parseInt(b['Search Volume'] || 0) - parseInt(a['Search Volume'] || 0);
+                } else if (currentSort === 'volume-asc') {
+                    return parseInt(a['Search Volume'] || 0) - parseInt(b['Search Volume'] || 0);
+                }
+                return 0;
+            });
+            
+            // Update result count
+            document.getElementById('resultCount').textContent = `${filteredData.length} results`;
+            
+            if (filteredData.length === 0) {
+                document.getElementById('tableHead').innerHTML = '';
+                document.getElementById('tableBody').innerHTML = '<tr><td class="no-data">No results match the filter</td></tr>';
+                return;
+            }
+            
+            // Get columns
+            const columns = Object.keys(filteredData[0]);
+            
+            // Create table header
+            const headerHtml = '<tr>' + columns.map(col => `<th>${escapeHtml(col)}</th>`).join('') + '</tr>';
+            document.getElementById('tableHead').innerHTML = headerHtml;
+            
+            // Create table body
+            const bodyHtml = filteredData.map(row => {
+                return '<tr>' + columns.map(col => {
+                    const value = row[col];
+                    
+                    // Special formatting for brand_status
+                    if (col === 'brand_status') {
+                        const className = value === 'Branded' ? 'brand-status-branded' : 'brand-status-non-branded';
+                        return `<td><span class="${className}">${escapeHtml(String(value || ''))}</span></td>`;
+                    }
+                    
+                    // Special formatting for relevance_score (show N/A for branded keywords)
+                    if (col === 'relevance_score' && value === 0 && row.brand_status === 'Branded') {
+                        return `<td style="color: #999;">N/A</td>`;
+                    }
+                    
+                    return `<td>${escapeHtml(String(value || ''))}</td>`;
+                }).join('') + '</tr>';
+            }).join('');
+            document.getElementById('tableBody').innerHTML = bodyHtml;
         }
         
         function escapeHtml(text) {

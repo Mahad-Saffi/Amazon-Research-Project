@@ -25,8 +25,26 @@ The script will:
 2. Enter Amazon ASIN or URL
 3. Click "Analyze Product"
 4. Watch real-time progress
-5. View results in table
-6. Results auto-saved to `results/` folder
+5. AI filters out branded keywords (2-stage verification)
+6. View results in table
+7. Results auto-saved to `results/` folder
+
+## Brand Filtering
+
+The system uses two AI agents to filter branded keywords:
+
+1. **Detection Agent**: Identifies potentially branded keywords (conservative approach)
+   - Marks as branded if contains brand names
+   - Marks as branded if unsure or doesn't recognize
+   
+2. **Verification Agent**: Cross-checks and verifies classifications
+   - Reviews keywords marked as branded
+   - Corrects over-conservative classifications
+   - Provides reasoning for each decision
+
+Output files:
+- `brand_classification_*.csv` - All keywords with status (Branded/Non-Branded)
+- `keyword_evaluations_*.csv` - Final results (non-branded only)
 
 ## Requirements
 
