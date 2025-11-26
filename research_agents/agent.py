@@ -12,7 +12,7 @@ load_dotenv(find_dotenv())  # Load environment variables from .env file
 summary_agent = Agent(
     name="SummaryAgent",
     instructions=SUMMARY_INSTRUCTIONS,
-    model="gpt-4o-mini",
+    model="gpt-5-mini",
     model_settings=ModelSettings(
         max_tokens=2000,
     ),
@@ -22,7 +22,7 @@ summary_agent = Agent(
 evaluation_agent = Agent(
     name="EvaluationAgent",
     instructions=EVALUATION_INSTRUCTIONS,
-    model="gpt-4o-mini",
+    model="gpt-5",
     model_settings=ModelSettings(
         max_tokens=4000,
     ),
