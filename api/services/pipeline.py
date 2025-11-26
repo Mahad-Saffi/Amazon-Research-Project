@@ -225,21 +225,32 @@ class ResearchPipeline:
             # Get keywords for evaluation
             keywords_list = [row['Keyword Phrase'] for row in filtered_rows]
             
-            # Step 8: Generate product summary (60%)
+            # Step 8: Extract title and bullets from scraped data (60%)
             if progress_callback:
-                await progress_callback(60, "Generating AI product summary...")
-            logger.info("Step 8: Generating product summary")
-            try:
-                summary_prompt = f"Analyze the following scraped product data and create a concise summary in bullet points.\n\nScraped Product Data:\n{json.dumps(scraped_data, indent=2)}"
-                summary_result = await Runner.run(summary_agent, summary_prompt)
-                
-                summary_raw = getattr(summary_result, "final_output", None)
-                summary_structured = self._extract_structured_output(summary_raw)
-                product_summary = summary_structured.get("product_summary", [])
-                logger.info(f"✅ Summary complete: {len(product_summary)} bullet points")
-            except Exception as e:
-                logger.error(f"❌ Summary agent failed: {str(e)}")
-                return {"success": False, "error": f"Summary failed: {str(e)}", "scraped_data": scraped_data}
+                await progress_callback(60, "Extracting product title and bullets...")
+            logger.info("Step 8: Extracting product title and bullets")
+            
+            # Extract title
+            product_title = scraped_data.get("title", "")
+            if not product_title:
+                # Try from elements
+                elements = scraped_data.get("elements", {})
+                title_data = elements.get("productTitle", {})
+                if title_data:
+                    title_text = title_data.get("text", "")
+                    product_title = title_text[0] if isinstance(title_text, list) else str(title_text)
+            
+            # Extract bullets
+            product_bullets = []
+            elements = scraped_data.get("elements", {})
+            bullets_data = elements.get("feature-bullets", {})
+            if bullets_data:
+                product_bullets = bullets_data.get("bullets", [])
+            
+            logger.info(f"✅ Extracted title and {len(product_bullets)} bullets")
+            
+            # Create product summary for display (not for evaluation)
+            product_summary = [f"Title: {product_title}"] + [f"• {bullet}" for bullet in product_bullets[:5]]
             
             # Step 9: Evaluate keywords in batches (70%)
             if progress_callback:
@@ -254,7 +265,19 @@ class ResearchPipeline:
             async def evaluate_batch(batch):
                 nonlocal completed_batches
                 try:
-                    eval_prompt = f"Evaluate the relevance of the following keywords to the product based on the summary.\n\nProduct Summary:\n{json.dumps(product_summary, indent=2)}\n\nKeywords:\n{json.dumps(batch, indent=2)}"
+                    eval_prompt = f"""Evaluate the relevance of the following keywords to the product based on its TITLE and BULLET POINTS.
+
+Product Title:
+{product_title}
+
+Product Bullet Points:
+{json.dumps(product_bullets, indent=2)}
+
+Keywords to evaluate:
+{json.dumps(batch, indent=2)}
+
+Remember: Keywords appearing in title get highest scores (9-10), keywords in bullets get high scores (7-9), semantic matches get medium scores (6-8)."""
+                    
                     eval_result = await Runner.run(evaluation_agent, eval_prompt)
                     eval_raw = getattr(eval_result, "final_output", None)
                     eval_structured = self._extract_structured_output(eval_raw)
