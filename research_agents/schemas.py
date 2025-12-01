@@ -79,7 +79,6 @@ class KeywordCategory(BaseModel):
     model_config = ConfigDict(extra='forbid')
     keyword: str
     category: str = Field(description="One of: irrelevant, outlier, relevant, design_specific")
-    relevance_score: int = Field(ge=1, le=10, description="1-4: irrelevant, 5-6: outlier, 7-8: relevant, 9-10: design_specific")
     language_tag: Optional[str] = Field(default=None, description="misspelled, spanish, french, etc. or None if English")
     reasoning: str = Field(description="Brief explanation of categorization")
 

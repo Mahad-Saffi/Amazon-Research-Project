@@ -368,6 +368,32 @@ class ResearchPipeline:
             keyword_evaluations = [cat for batch in cat_batch_results for cat in batch if cat]
             run_log.info(f"✅ Categorization complete: {len(keyword_evaluations)} categorizations")
             
+            # Map category to relevance_score using Python function
+            for cat in keyword_evaluations:
+                category = cat.get('category', 'relevant')
+                
+                # Map category to score range
+                if category == 'irrelevant':
+                    # Irrelevant: 1-4 (use 3 as default)
+                    cat['relevance_score'] = 3
+                elif category == 'outlier':
+                    # Outlier: 5-6 (use 5 as default)
+                    cat['relevance_score'] = 5
+                elif category == 'relevant':
+                    # Relevant: 7-8 (use 8 as default)
+                    cat['relevance_score'] = 8
+                elif category == 'design_specific':
+                    # Design-specific: 9-10 (use 10 as default)
+                    cat['relevance_score'] = 10
+                elif category == 'branded':
+                    # Branded: 2 (lowest score)
+                    cat['relevance_score'] = 2
+                else:
+                    # Default to relevant
+                    cat['relevance_score'] = 7
+            
+            run_log.info(f"✅ Relevance scores mapped from categories")
+            
             # Check if we got any categorizations
             if not keyword_evaluations:
                 run_log.warning("⚠️  No keyword categorizations returned from AI")
@@ -439,10 +465,9 @@ class ResearchPipeline:
                     # Create entry for branded keyword (no AI evaluation or categorization)
                     branded_entry = {
                         'keyword': keyword,
-                        'relevance_score': 0,  # Not evaluated
                         'rationale': 'Branded keyword - not evaluated',
-                        'category': 'branded',  # Will be set as category
-                        'category_score': 0,
+                        'category': 'branded',
+                        'relevance_score': 2,  # Branded keywords get score of 2
                         'language_tag': None,
                         'category_reasoning': 'Branded keyword',
                         'brand_status': 'Branded',
