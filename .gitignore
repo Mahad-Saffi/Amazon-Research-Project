@@ -24,8 +24,12 @@ Thumbs.db
 
 # Logs
 *.log
+logs/
+logs/*.log
 
 # Results (keep folder, ignore contents)
 results/*.csv
 results/*.json
 results/*
+
+*.md

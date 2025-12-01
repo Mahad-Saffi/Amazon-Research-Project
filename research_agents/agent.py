@@ -8,21 +8,22 @@ from .prompts import SUMMARY_INSTRUCTIONS, EVALUATION_INSTRUCTIONS
 
 load_dotenv(find_dotenv())  # Load environment variables from .env file
 
-
+# Not in Use
 summary_agent = Agent(
     name="SummaryAgent",
     instructions=SUMMARY_INSTRUCTIONS,
-    model="gpt-5-mini",
+    model="gpt-4o-mini",
     model_settings=ModelSettings(
         max_tokens=2000,
     ),
     output_type=AgentOutputSchema(ProductSummary, strict_json_schema=False),
 )
 
+# Not in Use
 evaluation_agent = Agent(
     name="EvaluationAgent",
     instructions=EVALUATION_INSTRUCTIONS,
-    model="gpt-5",
+    model="gpt-4o-mini",
     model_settings=ModelSettings(
         max_tokens=4000,
     ),

@@ -5,15 +5,20 @@ import logging
 import json
 import asyncio
 import csv
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pathlib import Path
 from datetime import datetime
 from agents import Runner
 
 from api.services.csv_processor import CSVProcessor
-from research_agents.agent import summary_agent, evaluation_agent
-from research_agents.brand_agents import brand_detection_agent, brand_verification_agent
+from api.services.logging_config import setup_run_logger, RunLogger
+from research_agents.brand_agents import brand_detection_agent
+from research_agents.categorization_agent import categorization_agent
 from research_agents.helper_methods import scrape_amazon_listing
+from research_agents.prompts import (
+    BRAND_DETECTION_PROMPT_TEMPLATE,
+    KEYWORD_CATEGORIZATION_PROMPT_TEMPLATE
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +27,7 @@ class ResearchPipeline:
     
     def __init__(self):
         self.csv_processor = CSVProcessor()
+        self.run_logger: Optional[RunLogger] = None
     
     async def run_complete_pipeline(
         self,
@@ -30,7 +36,8 @@ class ResearchPipeline:
         asin_or_url: str,
         marketplace: str = "US",
         use_mock_scraper: bool = False,
-        progress_callback=None
+        progress_callback=None,
+        request_id: str = None
     ) -> Dict[str, Any]:
         """
         Run complete research pipeline in memory
@@ -48,7 +55,16 @@ class ResearchPipeline:
         Returns:
             Dict with success flag, product summary, keyword evaluations, and metadata
         """
+        # Setup run-specific logger
+        if request_id:
+            self.run_logger = setup_run_logger(request_id)
+            run_log = self.run_logger.logger
+        else:
+            run_log = logger
+        
         try:
+            run_log.info(f"Starting pipeline for ASIN: {asin_or_url}, Marketplace: {marketplace}")
+            
             # Step 1: Parse CSV files (10%)
             if progress_callback:
                 await progress_callback(10, "Parsing CSV files...")
@@ -63,10 +79,10 @@ class ResearchPipeline:
             logger.info("Step 2: Deduplicating design CSV")
             design_dedup = self.csv_processor.deduplicate_design(design_rows, revenue_rows)
             
-            # If deduplication removes everything, use original design rows
+            # If deduplication removes everything, skip design processing (all keywords already in revenue)
             if len(design_dedup) == 0 and len(design_rows) > 0:
-                logger.warning("⚠️  Deduplication removed all design rows, using original design data")
-                design_dedup = design_rows
+                run_log.info("All design keywords already present in revenue CSV, skipping design processing")
+                design_dedup = []
             
             # Step 3: Filter columns (20%)
             if progress_callback:
@@ -112,45 +128,45 @@ class ResearchPipeline:
             top_10_roots = [rk['keyword'] for rk in root_keywords[:10]]
             logger.info(f"Top 10 root keywords: {top_10_roots}")
             
-            # Step 5.5: Brand Detection and Verification (33-38%)
+            # Step 5.5: Brand Detection (33-36%)
             if progress_callback:
                 await progress_callback(33, "Detecting branded keywords...")
-            logger.info("Step 5.5: Brand detection and verification")
+            logger.info("Step 5.5: Brand detection")
             
             # Get all unique keywords from filtered rows
             all_keywords = list(set([row['Keyword Phrase'] for row in (design_relevancy or []) + (revenue_relevancy or [])]))
             logger.info(f"Total keywords before brand filtering: {len(all_keywords)}")
             
-            # Stage 1: Brand Detection (conservative)
+            # Brand Detection
             branded_keywords, non_branded_keywords = await self._detect_brands(all_keywords, progress_callback)
             
-            if progress_callback:
-                await progress_callback(36, "Verifying brand classifications...")
+            logger.info(f"Brand filtering complete: {len(branded_keywords)} branded, {len(non_branded_keywords)} non-branded")
             
-            # Stage 2: Brand Verification (cross-check)
-            brand_classifications = await self._verify_brands(
-                branded_keywords, 
-                non_branded_keywords,
-                progress_callback
-            )
-            
-            # Count branded vs non-branded
-            final_branded = [item for item in brand_classifications if item['status'] == 'Branded']
-            final_non_branded = [item for item in brand_classifications if item['status'] == 'Non-Branded']
-            
-            logger.info(f"Brand filtering complete: {len(final_branded)} branded, {len(final_non_branded)} non-branded")
-            
-            # Save all classifications to single file
-            from datetime import datetime
+            # Save brand classifications
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            brand_classifications = []
+            
+            for kw in branded_keywords:
+                brand_classifications.append({
+                    'keyword': kw,
+                    'status': 'Branded',
+                    'reasoning': 'Contains brand name'
+                })
+            
+            for kw in non_branded_keywords:
+                brand_classifications.append({
+                    'keyword': kw,
+                    'status': 'Non-Branded',
+                    'reasoning': 'Generic term'
+                })
             
             if brand_classifications:
                 self.csv_processor.save_to_csv(brand_classifications, f"brand_classification_{timestamp}.csv")
                 logger.info(f"Saved brand classifications: {len(brand_classifications)} total keywords")
             
             # Separate branded and non-branded rows
-            non_branded_set = set(item['keyword'].lower() for item in final_non_branded)
-            branded_set = set(item['keyword'].lower() for item in final_branded)
+            non_branded_set = set(kw.lower() for kw in non_branded_keywords)
+            branded_set = set(kw.lower() for kw in branded_keywords)
             
             # Keep all rows but mark which are for evaluation
             all_design_rows = design_relevancy or []
@@ -173,14 +189,48 @@ class ResearchPipeline:
             scraped_result = scrape_amazon_listing(asin_or_url, marketplace, use_mock=use_mock_scraper)
             
             if not scraped_result.get("success"):
+                error_msg = scraped_result.get('error', 'Unknown error')
+                
+                # Check if it's a CAPTCHA error
+                if "CAPTCHA" in error_msg:
+                    run_log.error(f"❌ Amazon CAPTCHA detected. This is a common anti-bot protection.")
+                    return {
+                        "success": False,
+                        "error": "Amazon CAPTCHA detected. Please try one of these solutions:\n\n"
+                                "1. Use Mock Mode: Check 'Use mock scraper' checkbox to test with sample data\n"
+                                "2. Wait and Retry: Wait 5-10 minutes and try again\n"
+                                "3. Use VPN: Try connecting through a VPN\n"
+                                "4. Different Network: Try from a different network/location\n\n"
+                                "Note: Amazon actively blocks automated scraping. This is expected behavior.",
+                        "scraped_data": scraped_result,
+                        "log_file": self.run_logger.get_log_file_path() if self.run_logger else None
+                    }
+                
+                run_log.error(f"❌ Scraping failed: {error_msg}")
                 return {
                     "success": False,
-                    "error": f"Scraping failed: {scraped_result.get('error', 'Unknown error')}",
-                    "scraped_data": scraped_result
+                    "error": f"Scraping failed: {error_msg}",
+                    "scraped_data": scraped_result,
+                    "log_file": self.run_logger.get_log_file_path() if self.run_logger else None
                 }
             
             scraped_data = scraped_result.get("data", {})
             logger.info("✅ Scraping successful")
+            
+            # Save scraped data to JSON file for inspection
+            try:
+                results_dir = Path("results")
+                results_dir.mkdir(exist_ok=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                asin_clean = asin_or_url.replace('/', '_').replace(':', '_').replace('?', '_')[:50]
+                scraped_json_file = results_dir / f"scraped_data_{asin_clean}_{timestamp}.json"
+                
+                with open(scraped_json_file, 'w', encoding='utf-8') as f:
+                    json.dump(scraped_data, f, indent=2, ensure_ascii=False)
+                
+                logger.info(f"📄 Scraped data saved to: {scraped_json_file}")
+            except Exception as e:
+                logger.warning(f"⚠️  Could not save scraped data: {str(e)}")
             
             if progress_callback:
                 await progress_callback(45, "Product data retrieved successfully")
@@ -240,76 +290,94 @@ class ResearchPipeline:
                     title_text = title_data.get("text", "")
                     product_title = title_text[0] if isinstance(title_text, list) else str(title_text)
             
-            # Extract bullets
+            # Extract bullets - try multiple locations
             product_bullets = []
             elements = scraped_data.get("elements", {})
+            
+            # Try location 1: feature-bullets
             bullets_data = elements.get("feature-bullets", {})
             if bullets_data:
                 product_bullets = bullets_data.get("bullets", [])
             
-            logger.info(f"✅ Extracted title and {len(product_bullets)} bullets")
+            # Try location 2: productFactsDesktopExpander (About this item)
+            if not product_bullets:
+                facts_data = elements.get("productFactsDesktopExpander", {})
+                if facts_data:
+                    product_bullets = facts_data.get("bullets", []) or facts_data.get("items", [])
             
-            # Create product summary for display (not for evaluation)
+            # Try location 3: Direct bullets key
+            if not product_bullets:
+                product_bullets = scraped_data.get("bullets", []) or scraped_data.get("features", [])
+            
+            # Try location 4: feature_bullets
+            if not product_bullets:
+                product_bullets = scraped_data.get("feature_bullets", [])
+            
+            logger.info(f"✅ Extracted title and {len(product_bullets)} bullets")
+            if not product_bullets:
+                logger.warning("⚠️  No bullets found in scraped data. Check scraped_data JSON file for structure.")
+            
+            # Create product summary for display
             product_summary = [f"Title: {product_title}"] + [f"• {bullet}" for bullet in product_bullets[:5]]
             
-            # Step 9: Evaluate keywords in batches (70%)
+            # Step 9: Categorize keywords (70-95%)
             if progress_callback:
-                await progress_callback(70, "Evaluating keyword relevance with AI...")
-            logger.info("Step 9: Evaluating keyword relevance")
-            batch_size = 20
-            batches = [keywords_list[i:i + batch_size] for i in range(0, len(keywords_list), batch_size)]
-            logger.info(f"Created {len(batches)} batches for parallel evaluation")
+                await progress_callback(70, "Categorizing keywords...")
+            run_log.info("Step 9: Categorizing keywords into irrelevant/outlier/relevant/design-specific")
             
-            completed_batches = 0
+            # Categorize in batches with max 10 concurrent calls
+            categorization_batch_size = 20
+            max_concurrent_cat = 10
+            categorization_batches = [keywords_list[i:i + categorization_batch_size] for i in range(0, len(keywords_list), categorization_batch_size)]
+            run_log.info(f"Created {len(categorization_batches)} batches for categorization, max {max_concurrent_cat} concurrent calls")
             
-            async def evaluate_batch(batch):
-                nonlocal completed_batches
-                try:
-                    eval_prompt = f"""Evaluate the relevance of the following keywords to the product based on its TITLE and BULLET POINTS.
-
-Product Title:
-{product_title}
-
-Product Bullet Points:
-{json.dumps(product_bullets, indent=2)}
-
-Keywords to evaluate:
-{json.dumps(batch, indent=2)}
-
-Remember: Keywords appearing in title get highest scores (9-10), keywords in bullets get high scores (7-9), semantic matches get medium scores (6-8)."""
-                    
-                    eval_result = await Runner.run(evaluation_agent, eval_prompt)
-                    eval_raw = getattr(eval_result, "final_output", None)
-                    eval_structured = self._extract_structured_output(eval_raw)
-                    
-                    # Update progress for each completed batch
-                    completed_batches += 1
-                    if progress_callback:
-                        progress_percent = 70 + (completed_batches / len(batches)) * 20  # 70-90%
-                        await progress_callback(progress_percent, f"Evaluating keywords ({completed_batches}/{len(batches)} batches)...")
-                    
-                    return eval_structured.get("keyword_evaluations", [])
-                except Exception as e:
-                    logger.error(f"Error evaluating batch: {str(e)}")
-                    completed_batches += 1
-                    return []
+            # Semaphore to limit concurrent API calls
+            cat_semaphore = asyncio.Semaphore(max_concurrent_cat)
+            completed_cat_batches = 0
             
-            tasks = [evaluate_batch(batch) for batch in batches]
-            batch_results = await asyncio.gather(*tasks)
+            async def categorize_batch(batch):
+                nonlocal completed_cat_batches
+                async with cat_semaphore:
+                    try:
+                        cat_prompt = KEYWORD_CATEGORIZATION_PROMPT_TEMPLATE.format(
+                            product_title=product_title,
+                            product_bullets_json=json.dumps(product_bullets, indent=2),
+                            keywords_json=json.dumps(batch, indent=2)
+                        )
+                        
+                        cat_result = await Runner.run(categorization_agent, cat_prompt)
+                        cat_raw = getattr(cat_result, "final_output", None)
+                        cat_structured = self._extract_structured_output(cat_raw)
+                        
+                        # Update progress for each completed batch
+                        completed_cat_batches += 1
+                        if progress_callback:
+                            progress_percent = 70 + (completed_cat_batches / len(categorization_batches)) * 25  # 70-95%
+                            await progress_callback(progress_percent, f"Categorizing keywords ({completed_cat_batches}/{len(categorization_batches)} batches)...")
+                        
+                        return cat_structured.get("categorizations", [])
+                    except Exception as e:
+                        run_log.error(f"Error categorizing batch: {str(e)}")
+                        completed_cat_batches += 1
+                        return []
             
-            # Flatten results
-            keyword_evaluations = [eval for batch in batch_results for eval in batch if eval]
-            logger.info(f"✅ Evaluation complete: {len(keyword_evaluations)} evaluations")
+            cat_tasks = [categorize_batch(batch) for batch in categorization_batches]
+            cat_batch_results = await asyncio.gather(*cat_tasks)
             
-            # Check if we got any evaluations
+            # Flatten categorization results
+            keyword_evaluations = [cat for batch in cat_batch_results for cat in batch if cat]
+            run_log.info(f"✅ Categorization complete: {len(keyword_evaluations)} categorizations")
+            
+            # Check if we got any categorizations
             if not keyword_evaluations:
-                logger.warning("⚠️  No keyword evaluations returned from AI")
+                run_log.warning("⚠️  No keyword categorizations returned from AI")
                 return {
                     "success": True,
                     "product_summary": product_summary,
                     "keyword_evaluations": [],
                     "scraped_data": scraped_data,
                     "csv_filename": "",
+                    "log_file": self.run_logger.get_log_file_path() if self.run_logger else None,
                     "metadata": {
                         "asin_or_url": asin_or_url,
                         "marketplace": marketplace,
@@ -317,18 +385,21 @@ Remember: Keywords appearing in title get highest scores (9-10), keywords in bul
                         "design_rows_original": len(design_rows),
                         "revenue_rows_original": len(revenue_rows),
                         "design_rows_deduped": len(design_dedup),
-                        "branded_keywords_removed": len(final_branded) if 'final_branded' in locals() else 0,
-                        "non_branded_keywords_kept": len(final_non_branded) if 'final_non_branded' in locals() else 0,
+                        "branded_keywords_removed": len(branded_keywords),
+                        "non_branded_keywords_kept": len(non_branded_keywords),
                         "design_rows_filtered": len(design_relevancy) if design_relevancy else 0,
                         "revenue_rows_filtered": len(revenue_relevancy) if revenue_relevancy else 0,
                         "keywords_evaluated": 0,
                         "keywords_final": 0,
-                        "batches_processed": len(batches),
-                        "warning": "AI evaluation returned no results"
+                        "batches_processed": len(categorization_batches),
+                        "warning": "AI categorization returned no results"
                     }
                 }
             
-            # Sort by relevance_score descending
+            if progress_callback:
+                await progress_callback(95, "Categorization complete")
+            
+            # Sort by category_score descending
             keyword_evaluations.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
             
             # Merge with original row data and add brand status
@@ -365,13 +436,17 @@ Remember: Keywords appearing in title get highest scores (9-10), keywords in bul
                     keyword_lower = keyword.lower()
                     brand_info = brand_status_lookup.get(keyword_lower, {})
                     
-                    # Create entry for branded keyword (no AI evaluation)
+                    # Create entry for branded keyword (no AI evaluation or categorization)
                     branded_entry = {
                         'keyword': keyword,
                         'relevance_score': 0,  # Not evaluated
-                        'rationale': 'Branded keyword - not evaluated for relevance',
+                        'rationale': 'Branded keyword - not evaluated',
+                        'category': 'branded',  # Will be set as category
+                        'category_score': 0,
+                        'language_tag': None,
+                        'category_reasoning': 'Branded keyword',
                         'brand_status': 'Branded',
-                        'brand_reasoning': brand_info.get('reasoning', 'Identified as branded'),
+                        'brand_reasoning': brand_info.get('reasoning', 'Contains brand name'),
                         **row  # Include all original CSV data
                     }
                     merged_evaluations.append(branded_entry)
@@ -397,6 +472,47 @@ Remember: Keywords appearing in title get highest scores (9-10), keywords in bul
                 logger.error(f"Error sorting by search volume: {str(e)}")
             
             logger.info(f"✅ Pipeline complete: {len(merged_evaluations)} final evaluations")
+            
+            # Restructure output with specific fields in specific order
+            final_output = []
+            for row in merged_evaluations:
+                # Determine category (add "branded" as a category option)
+                if row.get('brand_status') == 'Branded':
+                    category = 'branded'
+                else:
+                    category = row.get('category', 'relevant')
+                
+                # Build the output row with exact field order
+                language_tag = row.get('language_tag')
+                # Convert None to empty string for tag
+                tag_value = language_tag if language_tag and language_tag != 'None' else ''
+                
+                output_row = {
+                    'keyword': row.get('keyword') or row.get('Keyword Phrase', ''),
+                    'category': category,
+                    'relevance_score': row.get('relevance_score', 0),  # This is category_score from categorization agent
+                    'relevance_rationale': row.get('reasoning', ''),  # This is reasoning from categorization agent
+                    'tag': tag_value,
+                    'category_rationale': row.get('reasoning', ''),  # Same as relevance_rationale
+                    'search_volume': row.get('Search Volume', ''),
+                    'title_density': row.get('Title Density', ''),
+                    'Position (Rank)': row.get('Position (Rank)', ''),
+                }
+                
+                # Add all competitor columns (B0* ASINs)
+                for key in row.keys():
+                    if key.startswith('B0'):
+                        output_row[key] = row.get(key, '')
+                
+                # Add competitor_relevance_formula (Relevance column)
+                output_row['competitor_relevance_formula'] = row.get('Relevance', '')
+                
+                # Add brand_reasoning
+                output_row['brand_reasoning'] = row.get('brand_reasoning', '')
+                
+                final_output.append(output_row)
+            
+            merged_evaluations = final_output
             
             # Check if we have final results
             if not merged_evaluations:
@@ -428,12 +544,13 @@ Remember: Keywords appearing in title get highest scores (9-10), keywords in bul
             # Auto-save CSV to results folder
             csv_filename = self._save_results_to_csv(merged_evaluations, asin_or_url)
             
-            return {
+            result = {
                 "success": True,
                 "product_summary": product_summary,
                 "keyword_evaluations": merged_evaluations,
                 "scraped_data": scraped_data,
                 "csv_filename": csv_filename,
+                "log_file": self.run_logger.get_log_file_path() if self.run_logger else None,
                 "metadata": {
                     "asin_or_url": asin_or_url,
                     "marketplace": marketplace,
@@ -441,22 +558,30 @@ Remember: Keywords appearing in title get highest scores (9-10), keywords in bul
                     "design_rows_original": len(design_rows),
                     "revenue_rows_original": len(revenue_rows),
                     "design_rows_deduped": len(design_dedup),
-                    "branded_keywords_removed": len(final_branded),
-                    "non_branded_keywords_kept": len(final_non_branded),
+                    "branded_keywords_removed": len(branded_keywords),
+                    "non_branded_keywords_kept": len(non_branded_keywords),
                     "design_rows_filtered": len(design_relevancy),
                     "revenue_rows_filtered": len(revenue_relevancy),
-                    "keywords_evaluated": len(keyword_evaluations),
+                    "keywords_categorized": len(keyword_evaluations),
                     "keywords_final": len(merged_evaluations),
-                    "batches_processed": len(batches)
+                    "batches_processed": len(categorization_batches)
                 }
             }
             
+            run_log.info(f"Pipeline completed successfully. Log file: {result['log_file']}")
+            return result
+            
         except Exception as e:
-            logger.error(f"Pipeline error: {str(e)}", exc_info=True)
+            run_log.error(f"Pipeline error: {str(e)}", exc_info=True)
             return {
                 "success": False,
-                "error": str(e)
+                "error": str(e),
+                "log_file": self.run_logger.get_log_file_path() if self.run_logger else None
             }
+        finally:
+            # Cleanup logger
+            if self.run_logger:
+                self.run_logger.cleanup()
     
     def _extract_structured_output(self, output: Any) -> Dict[str, Any]:
         """Extract structured data from agent output"""
@@ -485,128 +610,69 @@ Remember: Keywords appearing in title get highest scores (9-10), keywords in bul
     
     async def _detect_brands(self, keywords: List[str], progress_callback=None) -> tuple[List[str], List[str]]:
         """
-        Stage 1: Brand Detection (Conservative)
+        Brand Detection with controlled concurrency
         Returns: (branded_keywords, non_branded_keywords)
         """
         try:
-            # Process in batches of 100 keywords
-            batch_size = 100
+            # Process in batches with max 10 concurrent API calls
+            batch_size = 50
+            max_concurrent = 10
+            
+            # Create batches
+            batches = [keywords[i:i + batch_size] for i in range(0, len(keywords), batch_size)]
+            total_batches = len(batches)
+            logger.info(f"Brand detection: {len(keywords)} keywords in {total_batches} batches, max {max_concurrent} concurrent calls")
+            
+            # Semaphore to limit concurrent API calls
+            semaphore = asyncio.Semaphore(max_concurrent)
+            
             all_branded = []
+            all_non_branded = []
+            completed_batches = 0
             
-            for i in range(0, len(keywords), batch_size):
-                batch = keywords[i:i + batch_size]
-                
-                prompt = f"""Analyze these keywords and identify which ones are branded or uncertain.
-
-Keywords to analyze:
-{json.dumps(batch, indent=2)}
-
-Remember:
-- Mark as BRANDED if it contains a brand name
-- Mark as BRANDED if you are UNSURE or don't recognize it
-- Only exclude if you are CERTAIN it's generic
-
-Return ONLY the branded/uncertain keywords."""
-                
-                result = await Runner.run(brand_detection_agent, prompt)
-                detection_raw = getattr(result, "final_output", None)
-                detection_structured = self._extract_structured_output(detection_raw)
-                
-                branded_batch = detection_structured.get("branded_keywords", [])
+            async def process_batch(batch_index, batch):
+                nonlocal completed_batches
+                async with semaphore:
+                    try:
+                        prompt = BRAND_DETECTION_PROMPT_TEMPLATE.format(
+                            keywords_json=json.dumps(batch, indent=2)
+                        )
+                        
+                        result = await Runner.run(brand_detection_agent, prompt)
+                        detection_raw = getattr(result, "final_output", None)
+                        detection_structured = self._extract_structured_output(detection_raw)
+                        
+                        branded_batch = detection_structured.get("branded_keywords", [])
+                        non_branded_batch = detection_structured.get("non_branded_keywords", [])
+                        
+                        completed_batches += 1
+                        logger.info(f"Brand detection batch {batch_index + 1}/{total_batches}: {len(branded_batch)} branded, {len(non_branded_batch)} non-branded")
+                        
+                        return branded_batch, non_branded_batch
+                    
+                    except Exception as e:
+                        logger.error(f"Error in brand detection batch {batch_index + 1}: {str(e)}")
+                        completed_batches += 1
+                        # On error, treat batch as non-branded to not lose data
+                        return [], batch
+            
+            # Process all batches with controlled concurrency
+            tasks = [process_batch(i, batch) for i, batch in enumerate(batches)]
+            results = await asyncio.gather(*tasks)
+            
+            # Collect results
+            for branded_batch, non_branded_batch in results:
                 all_branded.extend(branded_batch)
-                
-                logger.info(f"Brand detection batch {i//batch_size + 1}: {len(branded_batch)} branded out of {len(batch)}")
+                all_non_branded.extend(non_branded_batch)
             
-            # Determine non-branded (those not in branded list)
-            branded_set = set(kw.lower() for kw in all_branded)
-            non_branded = [kw for kw in keywords if kw.lower() not in branded_set]
+            logger.info(f"Brand detection complete: {len(all_branded)} branded, {len(all_non_branded)} non-branded")
             
-            logger.info(f"Stage 1 - Detection: {len(all_branded)} branded, {len(non_branded)} non-branded")
-            
-            return all_branded, non_branded
+            return all_branded, all_non_branded
             
         except Exception as e:
             logger.error(f"Error in brand detection: {str(e)}")
             # On error, treat all as non-branded to not lose data
             return [], keywords
-    
-    async def _verify_brands(
-        self, 
-        branded_keywords: List[str], 
-        non_branded_keywords: List[str],
-        progress_callback=None
-    ) -> List[Dict[str, Any]]:
-        """
-        Stage 2: Brand Verification (Cross-check)
-        Returns: List of classifications with status field
-        """
-        try:
-            all_classifications = []
-            
-            # First, add non-branded keywords (already verified as generic)
-            for kw in non_branded_keywords:
-                all_classifications.append({
-                    'keyword': kw,
-                    'status': 'Non-Branded',
-                    'reasoning': 'Generic term identified in initial detection'
-                })
-            
-            if not branded_keywords:
-                logger.info("No branded keywords to verify")
-                return all_classifications
-            
-            # Process branded keywords in batches of 50
-            batch_size = 50
-            
-            for i in range(0, len(branded_keywords), batch_size):
-                batch = branded_keywords[i:i + batch_size]
-                
-                prompt = f"""Cross-check these keywords that were marked as "branded". Verify if they are truly branded or if they are actually generic terms.
-
-Keywords to verify:
-{json.dumps(batch, indent=2)}
-
-For each keyword, determine:
-- is_branded: true (if truly branded) or false (if actually generic)
-- reasoning: brief explanation
-
-Be thorough and correct any over-conservative classifications."""
-                
-                result = await Runner.run(brand_verification_agent, prompt)
-                verification_raw = getattr(result, "final_output", None)
-                verification_structured = self._extract_structured_output(verification_raw)
-                
-                classifications = verification_structured.get("classifications", [])
-                
-                for classification in classifications:
-                    keyword = classification.get("keyword", "")
-                    is_branded = classification.get("is_branded", True)
-                    reasoning = classification.get("reasoning", "")
-                    
-                    all_classifications.append({
-                        'keyword': keyword,
-                        'status': 'Branded' if is_branded else 'Non-Branded',
-                        'reasoning': reasoning
-                    })
-                
-                logger.info(f"Brand verification batch {i//batch_size + 1}: processed {len(classifications)} keywords")
-            
-            branded_count = sum(1 for c in all_classifications if c['status'] == 'Branded')
-            non_branded_count = sum(1 for c in all_classifications if c['status'] == 'Non-Branded')
-            logger.info(f"Stage 2 - Verification: {branded_count} branded, {non_branded_count} non-branded")
-            
-            return all_classifications
-            
-        except Exception as e:
-            logger.error(f"Error in brand verification: {str(e)}")
-            # On error, return conservative classification
-            return [
-                {'keyword': kw, 'status': 'Branded', 'reasoning': 'Error in verification'}
-                for kw in branded_keywords
-            ] + [
-                {'keyword': kw, 'status': 'Non-Branded', 'reasoning': 'Generic term'}
-                for kw in non_branded_keywords
-            ]
     
     def _save_results_to_csv(self, evaluations: List[Dict[str, Any]], asin_or_url: str) -> str:
         """Save results to CSV file in results folder"""

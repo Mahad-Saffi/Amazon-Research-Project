@@ -119,7 +119,8 @@ async def analyze_product_json(
             asin_or_url=asin_or_url,
             marketplace=marketplace,
             use_mock_scraper=use_mock_scraper,
-            progress_callback=update_progress
+            progress_callback=update_progress,
+            request_id=request_id if request_id else None
         )
         
         # Clean up progress

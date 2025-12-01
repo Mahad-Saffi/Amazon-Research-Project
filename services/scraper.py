@@ -12,7 +12,6 @@ import json
 import time
 import random
 import re
-import asyncio
 from typing import Dict, Any, Optional, List
 from urllib.parse import urlparse
 
@@ -27,10 +26,7 @@ except ImportError:
     }))
     sys.exit(1)
 
-try:
-    import aiohttp
-except ImportError:
-    aiohttp = None  # Optional for async functionality
+
 
 try:
     from bs4 import BeautifulSoup
@@ -186,6 +182,18 @@ class AmazonScraperV2:
                 text = li.get_text(strip=True)
                 if text:
                     bullets.append(text)
+        
+        # Fallback: Try "About this item" section if no feature bullets found
+        if not bullets:
+            about_div = soup.find('div', {'id': 'productFactsDesktopExpander'})
+            if about_div:
+                for li in about_div.find_all('li'):
+                    text = li.get_text(strip=True)
+                    if text:
+                        bullets.append(text)
+        
+        # Store bullets if found
+        if bullets:
             data["elements"]["feature-bullets"] = {
                 "present": True,
                 "bullets": bullets
@@ -333,6 +341,22 @@ class AmazonScraperV2:
                 if response.status_code == 200:
                     html = response.text
                     
+                    # Save raw HTML for debugging
+                    try:
+                        from pathlib import Path
+                        from datetime import datetime
+                        results_dir = Path("results")
+                        results_dir.mkdir(exist_ok=True)
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        # Extract ASIN from URL
+                        asin = url.split('/dp/')[-1].split('/')[0].split('?')[0]
+                        html_file = results_dir / f"scraped_html_{asin}_{timestamp}.html"
+                        with open(html_file, 'w', encoding='utf-8') as f:
+                            f.write(html)
+                        print(f"📄 Raw HTML saved to: {html_file}", file=sys.stderr)
+                    except Exception as e:
+                        print(f"⚠️  Could not save HTML: {str(e)}", file=sys.stderr)
+                    
                     # Check for blocking
                     if "captcha" in html.lower() or "robot check" in html.lower():
                         result["error"] = "CAPTCHA detected"
@@ -372,128 +396,7 @@ class AmazonScraperV2:
                 "robot check" in html_lower or
                 len(html) < 5000)
     
-    # ========== ASYNC METHODS FOR PARALLEL SCRAPING ==========
-    
-    async def scrape_async(self, session: 'aiohttp.ClientSession', url: str) -> Dict[str, Any]:
-        """
-        Async version of scrape() for parallel scraping.
-        
-        Args:
-            session: aiohttp ClientSession
-            url: Amazon product URL
-        
-        Returns:
-            Scraping result dictionary
-        """
-        result = {
-            "success": False,
-            "error": "Unknown error",
-            "data": {},
-            "url": url
-        }
-        
-        for attempt in range(1, self.max_retries + 1):
-            try:
-                headers = self._get_headers()
-                
-                # Add random delay before request
-                if attempt > 1:
-                    await asyncio.sleep(random.uniform(1.5, 3.5))
-                
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=30)) as response:
-                    if response.status == 200:
-                        html = await response.text()
-                        
-                        # Check for CAPTCHA
-                        if self._is_captcha_page(html):
-                            result["error"] = "CAPTCHA detected"
-                            if attempt < self.max_retries:
-                                await asyncio.sleep(2 ** attempt)
-                            continue
-                        
-                        # Parse HTML
-                        parsed_data = self._parse_html(html, url)
-                        result["success"] = True
-                        result["data"] = parsed_data
-                        result["error"] = None
-                        return result
-                    else:
-                        result["error"] = f"HTTP {response.status}"
-                        if attempt < self.max_retries:
-                            await asyncio.sleep(2 ** attempt)
-            
-            except asyncio.TimeoutError:
-                result["error"] = "Request timed out"
-                if attempt < self.max_retries:
-                    await asyncio.sleep(2 ** attempt)
-            except Exception as e:
-                result["error"] = str(e)
-                if attempt < self.max_retries:
-                    await asyncio.sleep(2 ** attempt)
-        
-        return result
-    
-    @staticmethod
-    async def scrape_multiple_async(
-        urls: List[str],
-        max_concurrent: int = 5,
-        proxy: Optional[str] = None,
-        progress_callback = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Scrape multiple URLs in parallel using async/await.
-        
-        Args:
-            urls: List of Amazon product URLs
-            max_concurrent: Maximum concurrent requests (default 5)
-            proxy: Optional proxy URL
-            progress_callback: Optional callback function(completed, total)
-        
-        Returns:
-            List of scraping results
-        """
-        if not aiohttp:
-            raise ImportError("aiohttp is required for parallel scraping. Install: pip install aiohttp")
-        
-        results = []
-        semaphore = asyncio.Semaphore(max_concurrent)
-        completed = 0
-        
-        async def bounded_scrape(session, scraper, url):
-            nonlocal completed
-            async with semaphore:
-                result = await scraper.scrape_async(session, url)
-                # Add small random delay between requests
-                await asyncio.sleep(random.uniform(0.3, 0.8))
-                completed += 1
-                if progress_callback:
-                    progress_callback(completed, len(urls))
-                return result
-        
-        connector = aiohttp.TCPConnector(limit=max_concurrent)
-        timeout = aiohttp.ClientTimeout(total=30)
-        
-        proxy_url = proxy if proxy else None
-        
-        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
-            scraper = AmazonScraperV2(proxy=proxy)
-            tasks = [bounded_scrape(session, scraper, url) for url in urls]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Convert exceptions to error results
-        final_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                final_results.append({
-                    "success": False,
-                    "error": str(result),
-                    "data": {},
-                    "url": urls[i]
-                })
-            else:
-                final_results.append(result)
-        
-        return final_results
+
 
 
 def scrape_amazon_mock(url: str) -> dict:

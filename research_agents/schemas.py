@@ -56,3 +56,35 @@ class ProductSummary(BaseModel):
 class KeywordEvaluations(BaseModel):
     model_config = ConfigDict(extra='forbid')
     keyword_evaluations: List[KeywordEvaluation]
+
+
+# ============================================================================
+# Brand Detection Schemas
+# ============================================================================
+
+class BrandDetectionResult(BaseModel):
+    """Result from brand detection agent"""
+    model_config = ConfigDict(extra='forbid')
+    branded_keywords: List[str] = Field(description="Keywords that contain brand names anywhere in the phrase")
+    non_branded_keywords: List[str] = Field(description="Keywords that are generic/non-branded")
+    reasoning: str = Field(default="Brand detection completed", description="Brief explanation of the detection logic")
+
+
+# ============================================================================
+# Keyword Categorization Schemas
+# ============================================================================
+
+class KeywordCategory(BaseModel):
+    """Individual keyword categorization"""
+    model_config = ConfigDict(extra='forbid')
+    keyword: str
+    category: str = Field(description="One of: irrelevant, outlier, relevant, design_specific")
+    relevance_score: int = Field(ge=1, le=10, description="1-4: irrelevant, 5-6: outlier, 7-8: relevant, 9-10: design_specific")
+    language_tag: Optional[str] = Field(default=None, description="misspelled, spanish, french, etc. or None if English")
+    reasoning: str = Field(description="Brief explanation of categorization")
+
+
+class KeywordCategorizationResult(BaseModel):
+    """Result from categorization agent"""
+    model_config = ConfigDict(extra='forbid')
+    categorizations: List[KeywordCategory] = Field(description="Categorization for each keyword")

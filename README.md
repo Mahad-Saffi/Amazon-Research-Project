@@ -25,26 +25,44 @@ The script will:
 2. Enter Amazon ASIN or URL
 3. Click "Analyze Product"
 4. Watch real-time progress
-5. AI filters out branded keywords (2-stage verification)
-6. View results in table
-7. Results auto-saved to `results/` folder
+5. AI filters out branded keywords
+6. AI evaluates keyword relevance (1-10 score)
+7. AI categorizes keywords (Irrelevant/Outlier/Relevant/Design-Specific)
+8. View results with filters and sorting
+9. Results auto-saved to `results/` folder
 
-## Brand Filtering
+## Features
 
-The system uses two AI agents to filter branded keywords:
+### Brand Filtering
+AI agent identifies branded keywords anywhere in the phrase:
+- Detects brand names (Nike, Apple, Amazon, etc.)
+- Conservative approach: marks uncertain keywords as branded
+- Branded keywords excluded from relevance evaluation
+- All keywords saved with brand status
 
-1. **Detection Agent**: Identifies potentially branded keywords (conservative approach)
-   - Marks as branded if contains brand names
-   - Marks as branded if unsure or doesn't recognize
-   
-2. **Verification Agent**: Cross-checks and verifies classifications
-   - Reviews keywords marked as branded
-   - Corrects over-conservative classifications
-   - Provides reasoning for each decision
+### Keyword Categorization
+AI categorizes keywords into four levels:
+- **IRRELEVANT (1-4)**: Completely different product
+- **OUTLIER (5-6)**: Too general or broader category
+- **RELEVANT (7-8)**: Accurately describes product
+- **DESIGN-SPECIFIC (9-10)**: Exact product with specific details
+
+### Language Detection
+Identifies keywords with issues:
+- Misspelled keywords
+- Spanish, French, German, etc.
+- Dual tagging (e.g., RELEVANT + MISSPELLED)
+
+### UI Controls
+- **Sort by**: Relevance Score or Search Volume
+- **Filter by Brand**: All / Non-Branded / Branded
+- **Filter by Category**: All / Design-Specific / Relevant / Outlier / Irrelevant
 
 Output files:
-- `brand_classification_*.csv` - All keywords with status (Branded/Non-Branded)
-- `keyword_evaluations_*.csv` - Final results (non-branded only)
+- `brand_classification_*.csv` - All keywords with brand status
+- `keyword_evaluations_*.csv` - Full results with categories and scores
+
+See [CATEGORIZATION_GUIDE.md](CATEGORIZATION_GUIDE.md) for detailed examples.
 
 ## Requirements
 

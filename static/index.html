@@ -301,6 +301,55 @@
             color: #0a0;
         }
         
+        .category-irrelevant {
+            background: #ffe0e0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #c00;
+        }
+        
+        .category-outlier {
+            background: #fff3cd;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #856404;
+        }
+        
+        .category-relevant {
+            background: #d1ecf1;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #0c5460;
+        }
+        
+        .category-design_specific {
+            background: #d4edda;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #155724;
+        }
+        
+        .category-branded {
+            background: #ffe0e0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            color: #c00;
+        }
+        
+        .language-tag {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #666;
+            margin-left: 5px;
+        }
+        
         .saved-file {
             margin-top: 10px;
             padding: 10px;
@@ -392,11 +441,23 @@
             </div>
             
             <div class="control-group">
-                <label for="filterBrand">Filter:</label>
+                <label for="filterBrand">Brand:</label>
                 <select id="filterBrand">
                     <option value="all">All Keywords</option>
                     <option value="non-branded">Non-Branded Only</option>
                     <option value="branded">Branded Only</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="filterCategory">Category:</label>
+                <select id="filterCategory">
+                    <option value="all">All Categories</option>
+                    <option value="design_specific">Design-Specific</option>
+                    <option value="relevant">Relevant</option>
+                    <option value="outlier">Outlier</option>
+                    <option value="irrelevant">Irrelevant</option>
+                    <option value="branded">Branded</option>
                 </select>
             </div>
             
@@ -535,12 +596,11 @@
             if (percent < 30) return 'Calculating relevancy scores...';
             if (percent < 33) return 'Extracting root keywords from data...';
             if (percent < 36) return 'Detecting branded keywords with AI...';
-            if (percent < 39) return 'Verifying brand classifications...';
             if (percent < 45) return 'Filtering out branded keywords...';
             if (percent < 55) return 'Fetching product data from Amazon...';
             if (percent < 65) return 'Analyzing product with AI...';
-            if (percent < 85) return 'Evaluating keyword relevance (this may take a moment)...';
-            if (percent < 95) return 'Merging results and filtering...';
+            if (percent < 90) return 'Evaluating keyword relevance (this may take a moment)...';
+            if (percent < 95) return 'Categorizing keywords into relevance levels...';
             if (percent < 100) return 'Saving results to file...';
             return 'Complete!';
         }
@@ -548,6 +608,7 @@
         let allEvaluations = [];
         let currentSort = 'relevance';
         let currentFilter = 'all';
+        let currentCategoryFilter = 'all';
         
         function displayResults(data) {
             const metadata = data.metadata || {};
@@ -557,11 +618,16 @@
             // Show saved file info or warning
             const savedFileDiv = document.getElementById('savedFile');
             if (data.csv_filename) {
-                savedFileDiv.textContent = `✓ Results saved to: results/${data.csv_filename}`;
+                let message = `✓ Results saved to: results/${data.csv_filename}`;
+                if (data.log_file) {
+                    message += `\n📋 Log file: ${data.log_file}`;
+                }
+                savedFileDiv.textContent = message;
                 savedFileDiv.style.display = 'block';
                 savedFileDiv.style.borderColor = 'green';
                 savedFileDiv.style.background = '#efe';
                 savedFileDiv.style.color = 'green';
+                savedFileDiv.style.whiteSpace = 'pre-line';
             } else if (metadata.warning) {
                 savedFileDiv.textContent = `⚠ Warning: ${metadata.warning}`;
                 savedFileDiv.style.display = 'block';
@@ -613,6 +679,11 @@
                 renderTable();
             });
             
+            document.getElementById('filterCategory').addEventListener('change', function(e) {
+                currentCategoryFilter = e.target.value;
+                renderTable();
+            });
+            
             // Initial render
             renderTable();
             
@@ -633,10 +704,17 @@
             
             // Filter data
             let filteredData = [...allEvaluations];
+            
+            // Brand filter
             if (currentFilter === 'branded') {
-                filteredData = filteredData.filter(row => row.brand_status === 'Branded');
+                filteredData = filteredData.filter(row => row.category === 'branded');
             } else if (currentFilter === 'non-branded') {
-                filteredData = filteredData.filter(row => row.brand_status === 'Non-Branded');
+                filteredData = filteredData.filter(row => row.category !== 'branded');
+            }
+            
+            // Category filter
+            if (currentCategoryFilter !== 'all') {
+                filteredData = filteredData.filter(row => row.category === currentCategoryFilter);
             }
             
             // Sort data
@@ -685,14 +763,23 @@
                 return '<tr>' + columns.map(col => {
                     const value = row[col];
                     
-                    // Special formatting for brand_status
-                    if (col === 'brand_status') {
-                        const className = value === 'Branded' ? 'brand-status-branded' : 'brand-status-non-branded';
-                        return `<td><span class="${className}">${escapeHtml(String(value || ''))}</span></td>`;
+                    // Special formatting for category
+                    if (col === 'category') {
+                        const className = `category-${value}`;
+                        const displayValue = value ? value.replace('_', '-').toUpperCase() : '';
+                        return `<td><span class="${className}">${escapeHtml(displayValue)}</span></td>`;
+                    }
+                    
+                    // Special formatting for tag (language tag)
+                    if (col === 'tag') {
+                        if (value && value !== 'null' && value !== null) {
+                            return `<td><span class="language-tag">${escapeHtml(String(value).toUpperCase())}</span></td>`;
+                        }
+                        return `<td></td>`;
                     }
                     
                     // Special formatting for relevance_score (show N/A for branded keywords)
-                    if (col === 'relevance_score' && value === 0 && row.brand_status === 'Branded') {
+                    if (col === 'relevance_score' && value === 0 && row.category === 'branded') {
                         return `<td style="color: #999;">N/A</td>`;
                     }
                     
