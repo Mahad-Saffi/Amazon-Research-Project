@@ -326,7 +326,7 @@ class ResearchPipeline:
             run_log.info("Step 9: Categorizing keywords into irrelevant/outlier/relevant/design-specific")
             
             # Categorize in batches with max 10 concurrent calls
-            categorization_batch_size = 20
+            categorization_batch_size = 5
             max_concurrent_cat = 10
             categorization_batches = [keywords_list[i:i + categorization_batch_size] for i in range(0, len(keywords_list), categorization_batch_size)]
             run_log.info(f"Created {len(categorization_batches)} batches for categorization, max {max_concurrent_cat} concurrent calls")

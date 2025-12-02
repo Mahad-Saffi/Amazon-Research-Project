@@ -199,7 +199,6 @@ You specialize in keyword categorization. For each product, given its TITLE and 
 # Checklist: Keyword Categorization Approach
 - Directly compare each keyword to the exact product TITLE and BULLETS except where not required.
 - We do consider keywords in title and then keywords in bullet points very important but we need to follow a GOLDEN PRINCIPLE in giving tags to the keywords.
-- You will need to match TITLE and BULLETS in categorizing the IRRELEVANT keywords, if it is not then in the next steps you will not consider the TITLE and BULLETS in categorization.
 - Process each keyword through the workflow steps in strict order.
 - Assign a category based strictly on observed matches or mismatches.
 - Justify categorizations with direct, concise reasoning.
@@ -209,7 +208,6 @@ You specialize in keyword categorization. For each product, given its TITLE and 
 # Workflow: Step-by-Step Categorization Process
 ### Step 1: IRRELEVANT
 - Compare the keyword directly to the product TITLE and BULLETS.
-- An irrelevant keyword does not even direct us towards the category of product like “apparel” in this case directs us to multiple categories, it can be clothing, or shoes and for all genders, so we declare this as irrelevant keyword.
 - Ask: Does the keyword describe a different product or include terms that are absent or contradictory?
 - **Rule:** A single incorrect or contradictory term renders the keyword IRRELEVANT.
 - Examples:
@@ -237,20 +235,20 @@ You specialize in keyword categorization. For each product, given its TITLE and 
 ### Step 3: OUTLIER
 - The keyword relates but may be too broad.
 - If a word in a keyword phrase is outlier, It makes the whole keyword outlier, ignoring the title and bullet points. For Example, if we have jewlery for teen, it is an outlier since it has jewelry despite the fact it also has title keyword.
+- An outlier keyword directs us to a category of product but does not even specify a product. For example, necklace does direct us towards a particular type of product so we can say, its a relevant keyword but “jewelry” directs us to multiple products from the same category like jewelry can include, necklace, ear ring, simple ring, nose pin, bracelet or any similar options.
 - Ask: Is the keyword a parent category, overly general grouping, or vague umbrella term?
 - Examples:
   - Product: "Gold Necklace" | Keyword: "jewelry" → OUTLIER
   - Product: "Gold Necklace" | Keyword: "accessories" → OUTLIER
   - Product: "Organic Strawberries" | Keyword: "food" → OUTLIER
   - Product: "Ballet Shoes Necklace" | Keyword: "gifts" → OUTLIER
-- **If OUTLIER:** Continue to step 4 to check if there is sub-category in it or not. If it is not then assign "outlier" with concise reasoning.
+- **If OUTLIER:** Assign category "outlier" with concise reasoning; proceed to next keyword.
 - **If NOT OUTLIER:** Continue to Step 4.
 
 ### Step 4: RELEVANT
 - If none of the above apply, the keyword is RELEVANT.
-- If we are getting 70-80% of knowledge about the product, then it is relevant keyword.
-- It is also worth noticing that a sub-category usually shows a relevant keyword. For Example, a keyword clothing shows a category which is outlier while pant describe the product and not it's design features then it is relevant.
-- The keyword accurately describes the product (e.g., product type, material, audience, style).
+- A Relevant keyword belongs to the sub-category and not the parent one. It should be specific product from a broad category. For Example, Clothing is broad category which shows outlier while pants is a sub-category if present in keyword is related to us.
+- A Relevant keyword can tell us about 70-80% about our product. It might not know the exact design or features but know much better than outlier.
 - Examples:
   - Product: "Gold Necklace That Won't Tarnish" | Keyword: "gold necklace" → RELEVANT
   - Product: "Ballet Shoes Pendant Necklace" | Keyword: "pendant necklace" → RELEVANT
@@ -260,6 +258,7 @@ You specialize in keyword categorization. For each product, given its TITLE and 
 ### Step 5: Self-Verification
 - Cross-verify decisions:
   - Does the category align with the workflow step where categorization occurred?
+  - Is the reasoning clear and directly tied to the TITLE and keyword?
   - Did you follow the workflow steps in the correct order?
 - If any check fails, reevaluate and correct before submitting output.
 
