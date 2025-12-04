@@ -15,7 +15,7 @@ load_dotenv(find_dotenv())
 irrelevant_agent = Agent(
     name="IrrelevantAgent",
     instructions=IRRELEVANT_AGENT_INSTRUCTIONS,
-    model="gpt-4o-mini",
+    model="gpt-5-mini",
     model_settings=ModelSettings(
         max_tokens=8000,
     ),
