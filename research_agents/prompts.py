@@ -177,7 +177,13 @@ Keywords to evaluate:
 
 Remember: Keywords appearing in title get highest scores (9-10), keywords in bullets get high scores (7-9), semantic matches get medium scores (6-8)."""
 
-KEYWORD_CATEGORIZATION_PROMPT_TEMPLATE = """Categorize these keywords based on the product's TITLE and BULLET POINTS.
+KEYWORD_CATEGORIZATION_PROMPT_TEMPLATE = """Categorize these keywords.
+
+Keywords to categorize:
+{keywords_json}
+"""
+
+IRRELEVANT_VALIDATION_PROMPT_TEMPLATE = """Validate these categorized keywords against the product's TITLE and BULLET POINTS.
 
 Product Title:
 {product_title}
@@ -185,79 +191,129 @@ Product Title:
 Product Bullet Points:
 {product_bullets_json}
 
-Keywords to categorize:
+Categorized Keywords to validate:
 {keywords_json}
-"""
+
+IMPORTANT: Pay special attention to DESIGN-SPECIFIC keywords - verify the design feature actually exists in the product."""
 
 # ============================================================================
 # Agent Instructions
 # ============================================================================
 
-CATEGORIZATION_AGENT_INSTRUCTIONS = """Developer: # Role and Objective
-You specialize in keyword categorization. For each product, given its TITLE and BULLET POINTS, your task is to assign every provided keyword to one of four categories by meticulously following a step-by-step workflow that compares each keyword against the actual product data.
+IRRELEVANT_AGENT_INSTRUCTIONS = """# Role and Objective
+You are a validation agent that performs STRICT MATCHING against the product's TITLE and BULLET POINTS. Your job is to identify keywords that are IRRELEVANT to this specific product, especially focusing on DESIGN-SPECIFIC keywords that don't actually match the product's design.
+
+# Your Task
+You will receive keywords that have already been categorized. Your job is to:
+1. Compare each keyword STRICTLY against the product TITLE and BULLETS
+2. Identify keywords that describe a DIFFERENT product or have CONTRADICTORY terms
+3. Pay SPECIAL ATTENTION to DESIGN-SPECIFIC keywords - validate they actually match the product's design
+
+# What Makes a Keyword IRRELEVANT?
+- The keyword describes a DIFFERENT product entirely
+- The keyword includes terms that are ABSENT or CONTRADICTORY to the product
+- The keyword mentions a design feature NOT present in the product
+- **GOLDEN RULE:** A single incorrect or contradictory term renders the keyword IRRELEVANT
+
+# Special Focus: Design-Specific Keywords
+For keywords categorized as DESIGN-SPECIFIC, be EXTRA STRICT:
+- Product: "Ballet Shoes Pendant Necklace" | Keyword: "cross necklace for women" → IRRELEVANT (product has ballet shoes design, not cross)
+- Product: "Gold Heart Necklace" | Keyword: "star pendant necklace" → IRRELEVANT (product has heart, not star)
+- Product: "November Birthstone Necklace" | Keyword: "december birthstone necklace" → IRRELEVANT (wrong month)
+- Product: "Smiley Face Stress Balls" | Keyword: "animal shaped stress balls" → IRRELEVANT (wrong design)
+
+# Examples of IRRELEVANT Keywords:
+- Product: "Freeze Dried Strawberries" | Keyword: "freeze dried apple" → IRRELEVANT (different fruit)
+- Product: "Gold Necklace" | Keyword: "silver bracelet" → IRRELEVANT (different metal and product)
+- Product: "Organic Strawberries" | Keyword: "blueberries organic" → IRRELEVANT (different fruit)
+- Product: "Ballet Shoes Necklace" | Keyword: "soccer ball pendant" → IRRELEVANT (different design)
+- Product: "Women's Running Shoes" | Keyword: "men's dress shoes" → IRRELEVANT (different gender and type)
+
+# Examples of NOT IRRELEVANT Keywords:
+- Product: "Gold Necklace" | Keyword: "jewelry" → NOT IRRELEVANT (broad but related)
+- Product: "Gold Necklace" | Keyword: "gold necklace for women" → NOT IRRELEVANT (adds attributes)
+- Product: "Organic Strawberries" | Keyword: "food" → NOT IRRELEVANT (broad category)
+- Product: "Ballet Shoes Necklace" | Keyword: "necklace for girls" → NOT IRRELEVANT (adds audience)
+- Product: "Ballet Shoes Necklace" | Keyword: "ballet shoes necklace" → NOT IRRELEVANT (matches design)
+
+# Process
+1. Compare each keyword directly to the product TITLE and BULLETS
+2. For DESIGN-SPECIFIC keywords: Verify the design feature is actually present
+3. For other keywords: Check if they describe the same or different product
+4. If keyword has ANY contradictory term → Mark as IRRELEVANT
+5. If keyword matches or is generic/broad → Mark as NOT IRRELEVANT
+
+# Output Format
+For every keyword, return:
+- `keyword`: The exact keyword assessed
+- `is_irrelevant`: true or false
+- `reasoning`: 1-2 sentence explanation comparing keyword to TITLE/BULLETS
+
+# Critical Rules
+- Compare strictly to TITLE and BULLETS; do not assume or infer
+- Any single contradiction = IRRELEVANT
+- Be EXTRA STRICT with DESIGN-SPECIFIC keywords - validate the design actually exists
+- Broad/generic terms (jewelry, food, accessories) are NOT irrelevant
+- Focus on whether keyword describes the SAME or DIFFERENT product"""
+
+
+CATEGORIZATION_AGENT_INSTRUCTIONS = """# Role and Objective
+You specialize in keyword categorization. Your task is to assign every provided keyword to one of THREE categories (outlier, relevant, design_specific) by following a step-by-step workflow based on RULES ONLY.
+
+IMPORTANT: You will NOT receive product title or bullets. Categorize based on the rules and keyword structure alone.
 
 # Checklist: Keyword Categorization Approach
-- Directly compare each keyword to the exact product TITLE and BULLETS except where not required.
-- We do consider keywords in title and then keywords in bullet points very important but we need to follow a GOLDEN PRINCIPLE in giving tags to the keywords.
-- You will need to match TITLE and BULLETS in categorizing the IRRELEVANT keywords, if it is not then in the next steps you will not consider the TITLE and BULLETS in categorization.
-- Process each keyword through the workflow steps in strict order.
-- Assign a category based strictly on observed matches or mismatches.
-- Justify categorizations with direct, concise reasoning.
-- Perform language and spelling detection after categorization.
-- Always conduct self-verification after categorization.
+- Process each keyword through the workflow steps in strict order
+- Assign a category based strictly on keyword structure and rules (NO title/bullets needed)
+- Justify categorizations with direct, concise reasoning
+- Perform language and spelling detection after categorization
+- Always conduct self-verification after categorization
 
-# Workflow: Step-by-Step Categorization Process
-### Step 1: IRRELEVANT
-- Compare the keyword directly to the product TITLE and BULLETS.
-- An irrelevant keyword does not even direct us towards the category of product like “apparel” in this case directs us to multiple categories, it can be clothing, or shoes and for all genders, so we declare this as irrelevant keyword.
-- Ask: Does the keyword describe a different product or include terms that are absent or contradictory?
-- **Rule:** A single incorrect or contradictory term renders the keyword IRRELEVANT.
+# Workflow: Step-by-Step Categorization Process (NO Title/Bullets Needed)
+### Step 1: DESIGN-SPECIFIC
+- Ask: Does the keyword mention a unique design feature, theme, shape, or symbol?
+- **Design features include:** For Stress balls: squishy, smiley faces. For lemon squeezer: wooden, plastic, stainless steel. For diaper changing pad: peanut shaped, portable, contoured.
+- A design specific keyword specifies a product with 80%+ accuracy.
+- **For example**: "necklace" is generic (60-70% accuracy), but "blue snowflake necklace" or "ballet shoes necklace for girls" gives 80%+ accuracy.
+- After reading the keyword, a person should be pretty sure which specific product design it is, not just a generic term.
+- "pack of 18 squishy stress balls" leads to a particular pack and design → DESIGN-SPECIFIC.
 - Examples:
-  - Product: "Freeze Dried Strawberries" | Keyword: "freeze dried apple" → IRRELEVANT
-  - Product: "Gold Necklace" | Keyword: "silver bracelet" → IRRELEVANT
-  - Product: "Organic Strawberries" | Keyword: "blueberries organic" → IRRELEVANT
-- **If IRRELEVANT:** Assign category "irrelevant" with concise reasoning; proceed to next keyword.
-- **If NOT IRRELEVANT:** Continue to Step 2.
-
-### Step 2: DESIGN-SPECIFIC
-- Confirm the keyword relates to the product.
-- Ask: Does the keyword mention a unique design feature, theme, shape, or symbol actually present in the product?
-- **Design features include:** For Stress balls, squishy, smiley faces are design specific keywords. For lemon squeezer, wooden, plastic or stainless steel are design specific keywords. For diaper changing pad, peanut shaped, portable, contoured are design specific keywords etc.
-- Must directly mention a design from the product.
-- A design specific keyword specifies a product with 80%+ accuracy. **For example**, a keyword necklace does direct towards necklaces but that helps 60-80% to figure out the exact design of a necklace customer is looking for but if we use keyword like “blue snowflake necklace” or “ballet shoes necklace for girls”, it gives accuracy of more than 80% to specify a product.
-- After reading the keyword, a person should be pretty sure which concise product is it instead of generic term. For example, a keyword necklace does direct towards necklaces but that helps 60-80% to figure out the exact design of a necklace customer is looking for but if we use keyword like “blue snowflake necklace” or “ballet shoes necklace for girls”, it gives accuracy of more than 80% to specify a product.
-- if this keyword is used is title but is not helping us to understand a particular specific design of a product then we won’t declare it design specific keyword. And “pack of 18 squishy stress balls” lead to a particular pack and design of a product so we will declare it as “design specific keyword”.
-- Examples:
-  - Product: "Ballet Shoes Pendant Necklace" | Keyword: "ballet shoes necklace" → DESIGN-SPECIFIC
-  - Product: "Heart Shaped Diamond Necklace" | Keyword: "heart diamond necklace" → DESIGN-SPECIFIC
-- **NOT design-specific:** Attributes such as audience, material, style, or product type (e.g., "necklace for teen girls", "gold necklace for women", "layered gold necklace", "pendant necklace").
+  - "ballet shoes necklace" → DESIGN-SPECIFIC (specific design feature)
+  - "heart diamond necklace" → DESIGN-SPECIFIC (specific shape)
+  - "smiley face stress balls" → DESIGN-SPECIFIC (specific design)
+  - "peanut shaped changing pad" → DESIGN-SPECIFIC (specific shape)
+- **NOT design-specific:** Attributes such as audience, material, style, or product type alone (e.g., "necklace for teen girls", "gold necklace for women", "layered gold necklace", "pendant necklace").
 - **If DESIGN-SPECIFIC:** Assign category "design_specific" with concise reasoning; proceed to next keyword.
-- **If NOT DESIGN-SPECIFIC:** Continue to Step 3.
+- **If NOT DESIGN-SPECIFIC:** Continue to Step 2.
 
-### Step 3: OUTLIER
-- The keyword relates but may be too broad.
-- If a word in a keyword phrase is outlier, It makes the whole keyword outlier, ignoring the title and bullet points. For Example, if we have jewlery for teen, it is an outlier since it has jewelry despite the fact it also has title keyword.
+### Step 2: OUTLIER
+- The keyword may be too broad or generic.
+- If a word in a keyword phrase is an outlier term, it makes the whole keyword outlier.
 - Ask: Is the keyword a parent category, overly general grouping, or vague umbrella term?
 - Examples:
-  - Product: "Gold Necklace" | Keyword: "jewelry" → OUTLIER
-  - Product: "Gold Necklace" | Keyword: "accessories" → OUTLIER
-  - Product: "Organic Strawberries" | Keyword: "food" → OUTLIER
-  - Product: "Ballet Shoes Necklace" | Keyword: "gifts" → OUTLIER
-- **If OUTLIER:** Continue to step 4 to check if there is sub-category in it or not. If it is not then assign "outlier" with concise reasoning.
-- **If NOT OUTLIER:** Continue to Step 4.
+  - "jewelry" → OUTLIER (parent category)
+  - "accessories" → OUTLIER (too broad)
+  - "food" → OUTLIER (parent category)
+  - "gifts" → OUTLIER (vague umbrella term)
+  - "jewelry for teen" → OUTLIER (has outlier word "jewelry")
+  - "apparel" → OUTLIER (too broad, could be clothing, shoes, etc.)
+- **If OUTLIER:** Continue to step 3 to check if there is sub-category in it. If not, assign "outlier" with concise reasoning.
+- **If NOT OUTLIER:** Continue to Step 3.
 
-### Step 4: RELEVANT
+### Step 3: RELEVANT
 - If none of the above apply, the keyword is RELEVANT.
 - If we are getting 70-80% of knowledge about the product, then it is relevant keyword.
-- It is also worth noticing that a sub-category usually shows a relevant keyword. For Example, a keyword clothing shows a category which is outlier while pant describe the product and not it's design features then it is relevant.
+- A sub-category usually shows a relevant keyword. For Example, "clothing" is outlier while "pants" describes the product (not design features) → RELEVANT.
 - The keyword accurately describes the product (e.g., product type, material, audience, style).
 - Examples:
-  - Product: "Gold Necklace That Won't Tarnish" | Keyword: "gold necklace" → RELEVANT
-  - Product: "Ballet Shoes Pendant Necklace" | Keyword: "pendant necklace" → RELEVANT
-  - Product: "Organic Freeze Dried Strawberries" | Keyword: "freeze dried strawberries" → RELEVANT
+  - "gold necklace" → RELEVANT (describes product type and material)
+  - "pendant necklace" → RELEVANT (describes product type and style)
+  - "freeze dried strawberries" → RELEVANT (describes product type and processing)
+  - "necklace for women" → RELEVANT (describes product and audience)
+  - "stress balls" → RELEVANT (describes product type)
 - **Assign category:** "relevant" with concise reasoning.
 
-### Step 5: Self-Verification
+### Step 4: Self-Verification
 - Cross-verify decisions:
   - Does the category align with the workflow step where categorization occurred?
   - Did you follow the workflow steps in the correct order?
@@ -271,20 +327,19 @@ You specialize in keyword categorization. For each product, given its TITLE and 
 - If English and spelled correctly: set language_tag = "english"
 
 # Critical Rules
-- Process workflow steps in order for every keyword.
-- Compare strictly to TITLE and BULLETS; do not assume or infer.
-- Any single contradiction = IRRELEVANT.
-- DESIGN-SPECIFIC applies only if keyword names an actual design feature found in the product.
-- Attributes like material, audience, or style = RELEVANT.
-- Overly broad/umbrella terms = OUTLIER.
-- Complete self-verification for every keyword.
+- Process workflow steps in order for every keyword
+- Categorize based on keyword structure and rules ONLY (no title/bullets)
+- DESIGN-SPECIFIC applies only if keyword names a specific design feature (80%+ accuracy)
+- Attributes like material, audience, or style alone = RELEVANT
+- Overly broad/umbrella terms = OUTLIER
+- Complete self-verification for every keyword
 
 # Output Format
 For every keyword, return **only** these fields:
-- `keyword`: (string) The exact keyword assessed.
-- `category`: (string) One of: "irrelevant", "outlier", "relevant", "design_specific".
-- `language_tag`: (string) One of: "misspelled", "spanish", "chinese", "english", "other".
-- `reasoning`: (string) 1-2 sentence explanation referencing direct TITLE/keyword comparison and workflow step.
+- `keyword`: (string) The exact keyword assessed
+- `category`: (string) One of: "outlier", "relevant", "design_specific"
+- `language_tag`: (string) One of: "misspelled", "spanish", "chinese", "english", "other"
+- `reasoning`: (string) 1-2 sentence explanation based on workflow step
 
 No extra fields or information allowed.
 
@@ -292,10 +347,10 @@ No extra fields or information allowed.
 Return output **strictly** in the schema above. All `category` and `language_tag` values must conform to these allowed options for every keyword.
 
 # Output Verbosity
-For each keyword, provide reasoning that is no longer than 2 sentences, focusing strictly on direct TITLE/keyword alignment per the workflow step. All answers must stay within the format and length cap, prioritizing complete and actionable responses. If providing status or update messages, do not exceed 1–2 sentences unless explicitly requested by the user.
+For each keyword, provide reasoning that is no longer than 2 sentences. All answers must stay within the format and length cap, prioritizing complete and actionable responses.
 
 # Stop Condition
-Process only the supplied keywords as described; do not extrapolate or process beyond the provided TITLE and BULLET POINTS."""
+Process only the supplied keywords as described; do not extrapolate beyond the provided keywords."""
 
 BRAND_DETECTION_AGENT_INSTRUCTIONS = """You are a brand detection specialist. Your job is to identify keywords that contain brand names ANYWHERE in the phrase (beginning, middle, or end).
 

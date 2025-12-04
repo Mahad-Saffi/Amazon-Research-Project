@@ -74,11 +74,25 @@ class BrandDetectionResult(BaseModel):
 # Keyword Categorization Schemas
 # ============================================================================
 
+class KeywordIrrelevance(BaseModel):
+    """Individual keyword irrelevance check"""
+    model_config = ConfigDict(extra='forbid')
+    keyword: str
+    is_irrelevant: bool = Field(description="True if keyword is irrelevant to the product")
+    reasoning: str = Field(description="Brief explanation of why keyword is or isn't irrelevant")
+
+
+class KeywordIrrelevantResult(BaseModel):
+    """Result from irrelevant detection agent"""
+    model_config = ConfigDict(extra='forbid')
+    irrelevance_checks: List[KeywordIrrelevance] = Field(description="Irrelevance check for each keyword")
+
+
 class KeywordCategory(BaseModel):
     """Individual keyword categorization"""
     model_config = ConfigDict(extra='forbid')
     keyword: str
-    category: str = Field(description="One of: irrelevant, outlier, relevant, design_specific")
+    category: str = Field(description="One of: outlier, relevant, design_specific")
     language_tag: Optional[str] = Field(default=None, description="misspelled, spanish, french, etc. or None if English")
     reasoning: str = Field(description="Brief explanation of categorization")
 

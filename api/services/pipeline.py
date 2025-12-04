@@ -14,10 +14,12 @@ from api.services.csv_processor import CSVProcessor
 from api.services.logging_config import setup_run_logger, RunLogger
 from research_agents.brand_agents import brand_detection_agent
 from research_agents.categorization_agent import categorization_agent
+from research_agents.irrelevant_agent import irrelevant_agent
 from research_agents.helper_methods import scrape_amazon_listing
 from research_agents.prompts import (
     BRAND_DETECTION_PROMPT_TEMPLATE,
-    KEYWORD_CATEGORIZATION_PROMPT_TEMPLATE
+    KEYWORD_CATEGORIZATION_PROMPT_TEMPLATE,
+    IRRELEVANT_VALIDATION_PROMPT_TEMPLATE
 )
 
 logger = logging.getLogger(__name__)
@@ -340,8 +342,6 @@ class ResearchPipeline:
                 async with cat_semaphore:
                     try:
                         cat_prompt = KEYWORD_CATEGORIZATION_PROMPT_TEMPLATE.format(
-                            product_title=product_title,
-                            product_bullets_json=json.dumps(product_bullets, indent=2),
                             keywords_json=json.dumps(batch, indent=2)
                         )
                         
@@ -367,6 +367,124 @@ class ResearchPipeline:
             # Flatten categorization results
             keyword_evaluations = [cat for batch in cat_batch_results for cat in batch if cat]
             run_log.info(f"✅ Categorization complete: {len(keyword_evaluations)} categorizations")
+            
+            # Step 7: Irrelevant Validation (95-98%)
+            if progress_callback:
+                await progress_callback(95, "Validating keywords against product...")
+            
+            logger.info("Step 7: Irrelevant validation")
+            run_log.info("Step 7: Validating categorized keywords against product title and bullets")
+            
+            # Prepare categorized keywords for validation
+            categorized_keywords_for_validation = [
+                {
+                    'keyword': cat.get('keyword'),
+                    'category': cat.get('category'),
+                    'reasoning': cat.get('reasoning', '')
+                }
+                for cat in keyword_evaluations
+            ]
+            
+            # Run irrelevant validation in batches (smaller batches to avoid token limits)
+            validation_batch_size = 25
+            validation_batches = [categorized_keywords_for_validation[i:i + validation_batch_size] 
+                                 for i in range(0, len(categorized_keywords_for_validation), validation_batch_size)]
+            run_log.info(f"Created {len(validation_batches)} batches for irrelevant validation")
+            
+            max_concurrent_val = 10
+            val_semaphore = asyncio.Semaphore(max_concurrent_val)
+            completed_val_batches = 0
+            
+            async def validate_batch(batch):
+                nonlocal completed_val_batches
+                async with val_semaphore:
+                    try:
+                        val_prompt = IRRELEVANT_VALIDATION_PROMPT_TEMPLATE.format(
+                            product_title=product_title,
+                            product_bullets_json=json.dumps(product_bullets, indent=2),
+                            keywords_json=json.dumps(batch, indent=2)
+                        )
+                        
+                        val_result = await Runner.run(irrelevant_agent, val_prompt)
+                        val_raw = getattr(val_result, "final_output", None)
+                        val_structured = self._extract_structured_output(val_raw)
+                        
+                        completed_val_batches += 1
+                        if progress_callback:
+                            progress_percent = 95 + (completed_val_batches / len(validation_batches)) * 3  # 95-98%
+                            await progress_callback(progress_percent, f"Validating keywords ({completed_val_batches}/{len(validation_batches)} batches)...")
+                        
+                        checks = val_structured.get("irrelevance_checks", [])
+                        if checks:
+                            run_log.info(f"Batch validation successful: {len(checks)} keywords validated")
+                        return checks
+                    except Exception as e:
+                        run_log.error(f"Error validating batch: {str(e)}")
+                        run_log.warning(f"Skipping validation for this batch - keeping original categorizations")
+                        completed_val_batches += 1
+                        return []
+            
+            val_tasks = [validate_batch(batch) for batch in validation_batches]
+            val_batch_results = await asyncio.gather(*val_tasks)
+            
+            # Flatten validation results
+            irrelevance_checks = [check for batch in val_batch_results for check in batch if check]
+            run_log.info(f"✅ Validation complete: {len(irrelevance_checks)} checks")
+            
+            # Create lookup for irrelevant keywords
+            irrelevant_lookup = {
+                check.get('keyword', '').lower(): check 
+                for check in irrelevance_checks 
+                if check.get('is_irrelevant', False)
+            }
+            
+            # Store irrelevant keywords (like branded keywords)
+            irrelevant_keywords = []
+            non_irrelevant_keywords = []
+            
+            for check in irrelevance_checks:
+                keyword = check.get('keyword', '')
+                if check.get('is_irrelevant', False):
+                    irrelevant_keywords.append(keyword)
+                else:
+                    non_irrelevant_keywords.append(keyword)
+            
+            run_log.info(f"Validation results: {len(irrelevant_keywords)} irrelevant, {len(non_irrelevant_keywords)} valid")
+            
+            # Save irrelevant classifications
+            if irrelevance_checks:
+                irrelevant_classifications = []
+                for check in irrelevance_checks:
+                    irrelevant_classifications.append({
+                        'keyword': check.get('keyword', ''),
+                        'status': 'Irrelevant' if check.get('is_irrelevant', False) else 'Valid',
+                        'reasoning': check.get('reasoning', '')
+                    })
+                
+                results_dir = Path("results")
+                results_dir.mkdir(exist_ok=True)
+                irrelevant_csv_path = results_dir / f"irrelevant_classification_{timestamp}.csv"
+                with open(irrelevant_csv_path, 'w', newline='', encoding='utf-8') as f:
+                    if irrelevant_classifications:
+                        writer = csv.DictWriter(f, fieldnames=['keyword', 'status', 'reasoning'])
+                        writer.writeheader()
+                        writer.writerows(irrelevant_classifications)
+                logger.info(f"Saved irrelevant classifications: {len(irrelevant_classifications)} total keywords")
+            
+            # Overwrite categories for irrelevant keywords
+            overwritten_count = 0
+            for cat in keyword_evaluations:
+                keyword_lower = cat.get('keyword', '').lower()
+                if keyword_lower in irrelevant_lookup:
+                    irrelevant_info = irrelevant_lookup[keyword_lower]
+                    original_category = cat.get('category', 'unknown')
+                    # Overwrite category and reasoning
+                    cat['category'] = 'irrelevant'
+                    cat['reasoning'] = irrelevant_info.get('reasoning', 'Does not match product')
+                    run_log.info(f"Overwritten '{cat.get('keyword')}' from {original_category.upper()} to IRRELEVANT: {cat['reasoning']}")
+                    overwritten_count += 1
+            
+            run_log.info(f"✅ Categories updated with validation results: {overwritten_count} keywords overwritten to IRRELEVANT")
             
             # Map category to relevance_score using Python function
             for cat in keyword_evaluations:
@@ -413,6 +531,8 @@ class ResearchPipeline:
                         "design_rows_deduped": len(design_dedup),
                         "branded_keywords_removed": len(branded_keywords),
                         "non_branded_keywords_kept": len(non_branded_keywords),
+                        "irrelevant_keywords_found": 0,
+                        "valid_keywords_kept": 0,
                         "design_rows_filtered": len(design_relevancy) if design_relevancy else 0,
                         "revenue_rows_filtered": len(revenue_relevancy) if revenue_relevancy else 0,
                         "keywords_evaluated": 0,
@@ -423,7 +543,7 @@ class ResearchPipeline:
                 }
             
             if progress_callback:
-                await progress_callback(95, "Categorization complete")
+                await progress_callback(98, "Validation complete, finalizing results...")
             
             # Sort by category_score descending
             keyword_evaluations.sort(key=lambda x: x.get('relevance_score', 0), reverse=True)
@@ -481,10 +601,12 @@ class ResearchPipeline:
             
             logger.info(f"Total results: {len(merged_evaluations)} ({len(keyword_evaluations)} evaluated + {len(branded_rows)} branded)")
             
-            # Filter to relevance_score >= 5 (but keep all branded keywords regardless)
+            # Filter to relevance_score >= 5 (but keep branded and irrelevant keywords for visibility)
             merged_evaluations = [
                 row for row in merged_evaluations 
-                if row.get('relevance_score', 0) >= 5 or row.get('brand_status') == 'Branded'
+                if row.get('relevance_score', 0) >= 5 
+                or row.get('brand_status') == 'Branded'
+                or row.get('category', '').lower() == 'irrelevant'
             ]
             
             # Sort by search volume descending
@@ -585,6 +707,8 @@ class ResearchPipeline:
                     "design_rows_deduped": len(design_dedup),
                     "branded_keywords_removed": len(branded_keywords),
                     "non_branded_keywords_kept": len(non_branded_keywords),
+                    "irrelevant_keywords_found": len(irrelevant_keywords),
+                    "valid_keywords_kept": len(non_irrelevant_keywords),
                     "design_rows_filtered": len(design_relevancy),
                     "revenue_rows_filtered": len(revenue_relevancy),
                     "keywords_categorized": len(keyword_evaluations),

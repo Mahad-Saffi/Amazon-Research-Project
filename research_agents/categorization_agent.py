@@ -16,7 +16,7 @@ load_dotenv(find_dotenv())
 categorization_agent = Agent(
     name="CategorizationAgent",
     instructions=CATEGORIZATION_AGENT_INSTRUCTIONS,
-    model="gpt-5",
+    model="gpt-5-mini",
     model_settings=ModelSettings(
         max_tokens=5000,
     ),
