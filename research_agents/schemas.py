@@ -121,3 +121,27 @@ class KeywordEnhancedIrrelevantResult(BaseModel):
     """Result from enhanced irrelevant categorization agent"""
     model_config = ConfigDict(extra='forbid')
     analyses: List[EnhancedIrrelevantAnalysis] = Field(description="Enhanced analysis for each keyword")
+
+
+# ============================================================================
+# Competitor Relevant Verification Schemas
+# ============================================================================
+
+class TitleMatchAnalysis(BaseModel):
+    """Analysis of a single title match"""
+    model_config = ConfigDict(extra='forbid')
+    title: str
+    matches_product: bool = Field(description="True if title matches our product")
+    reasoning: str = Field(description="Why this title does or doesn't match")
+
+
+class CompetitorRelevantVerificationResult(BaseModel):
+    """Result from competitor relevant verification agent"""
+    model_config = ConfigDict(extra='forbid')
+    keyword: str
+    total_titles_analyzed: int = Field(description="Total number of titles analyzed (max 10)")
+    matching_titles_count: int = Field(description="Number of titles that match our product")
+    match_percentage: float = Field(description="Percentage of titles that match (0-100)")
+    title_analyses: List[TitleMatchAnalysis] = Field(description="Analysis of each title")
+    final_verdict: str = Field(description="'relevant' if >50% match, 'irrelevant' if <=50% match")
+    reasoning: str = Field(description="Overall reasoning for the verdict")

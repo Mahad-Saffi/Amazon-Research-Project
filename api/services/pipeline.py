@@ -15,11 +15,13 @@ from api.services.logging_config import setup_run_logger, RunLogger
 from research_agents.brand_agents import brand_detection_agent
 from research_agents.categorization_agent import categorization_agent
 from research_agents.irrelevant_agent import irrelevant_agent
+from research_agents.competitor_relevant_verification_agent import competitor_relevant_verification_agent
 from research_agents.helper_methods import scrape_amazon_listing
 from research_agents.prompts import (
     BRAND_DETECTION_PROMPT_TEMPLATE,
     KEYWORD_CATEGORIZATION_PROMPT_TEMPLATE,
-    IRRELEVANT_VALIDATION_PROMPT_TEMPLATE
+    IRRELEVANT_VALIDATION_PROMPT_TEMPLATE,
+    COMPETITOR_RELEVANT_VERIFICATION_INSTRUCTIONS
 )
 
 logger = logging.getLogger(__name__)
@@ -768,12 +770,176 @@ class ResearchPipeline:
                     }
                 }
             
-            # Step 9: Create Final Comprehensive CSV with All Tags
+            # Step 9: Verify Competitor Relevant Keywords
+            # For each competitor_relevant keyword, scrape and verify if it's actually relevant
+            run_log.info("Step 9: Verifying competitor_relevant keywords")
+            
+            competitor_relevant_keywords = [
+                cat for cat in merged_evaluations 
+                if cat.get('category', '').lower() == 'competitor_relevant'
+            ]
+            
+            if competitor_relevant_keywords:
+                run_log.info(f"Found {len(competitor_relevant_keywords)} competitor_relevant keywords to verify")
+                
+                try:
+                    from Experimental.amazon_keyword_scraper import AmazonKeywordScraper
+                    from concurrent.futures import ThreadPoolExecutor, as_completed
+                    
+                    # Step 1: Scrape all titles in parallel using threads
+                    run_log.info("Step 9a: Scraping titles for all competitor_relevant keywords (parallel)")
+                    
+                    scraped_titles = {}
+                    
+                    def scrape_keyword_titles(keyword):
+                        """Scrape titles for a single keyword"""
+                        try:
+                            scraper = AmazonKeywordScraper()
+                            scraper.warm_up()
+                            html = scraper.scrape_search_html(keyword, page=1)
+                            titles = scraper.extract_product_titles(html)
+                            scraper.close()
+                            return keyword, titles[:10]  # Get top 10
+                        except Exception as e:
+                            run_log.warning(f"Error scraping '{keyword}': {str(e)}")
+                            return keyword, []
+                    
+                    # Use ThreadPoolExecutor for parallel scraping
+                    keywords_to_verify = [cat.get('keyword') for cat in competitor_relevant_keywords]
+                    
+                    with ThreadPoolExecutor(max_workers=5) as executor:
+                        futures = {
+                            executor.submit(scrape_keyword_titles, kw): kw 
+                            for kw in keywords_to_verify
+                        }
+                        
+                        for future in as_completed(futures):
+                            keyword, titles = future.result()
+                            scraped_titles[keyword] = titles
+                            if titles:
+                                run_log.info(f"Scraped {len(titles)} titles for '{keyword}'")
+                    
+                    run_log.info(f"✅ Scraping complete: {len(scraped_titles)} keywords with titles")
+                    
+                    # Step 2: Verify keywords with controlled concurrency (max 5 concurrent API calls)
+                    run_log.info("Step 9b: Verifying keywords with AI agent (concurrent verification)")
+                    
+                    verification_results = {}
+                    verified_count = 0
+                    max_concurrent_verify = 5
+                    verify_semaphore = asyncio.Semaphore(max_concurrent_verify)
+                    completed_verifications = 0
+                    
+                    async def verify_keyword(keyword_data):
+                        nonlocal completed_verifications, verified_count
+                        async with verify_semaphore:
+                            keyword = keyword_data.get('keyword')
+                            titles = scraped_titles.get(keyword, [])
+                            
+                            if not titles:
+                                run_log.warning(f"No titles scraped for '{keyword}' - marking as irrelevant")
+                                verification_results[keyword] = {
+                                    'verdict': 'irrelevant',
+                                    'match_percentage': 0,
+                                    'reasoning': 'No competitor titles found'
+                                }
+                                completed_verifications += 1
+                                return
+                            
+                            try:
+                                run_log.info(f"Verifying '{keyword}' with {len(titles)} titles")
+                                
+                                # Format titles for agent
+                                titles_text = "\n".join([f"{i+1}. {t}" for i, t in enumerate(titles)])
+                                
+                                # Create verification prompt with all data
+                                verification_prompt = f"""
+Keyword: {keyword}
+
+Our Product:
+- Title: {product_title}
+- Bullets: {chr(10).join(f'  • {b}' for b in product_bullets)}
+
+Top {len(titles)} Competitor Titles:
+{titles_text}
+
+Analyze each title and determine if it matches our product. Return the results in the specified JSON format.
+"""
+                                
+                                # ONE API call per keyword
+                                agent_result = await Runner.run(
+                                    competitor_relevant_verification_agent, 
+                                    verification_prompt
+                                )
+                                
+                                agent_output = getattr(agent_result, "final_output", None)
+                                agent_structured = self._extract_structured_output(agent_output)
+                                
+                                # Extract verdict
+                                final_verdict = agent_structured.get('final_verdict', 'irrelevant')
+                                match_percentage = agent_structured.get('match_percentage', 0)
+                                reasoning = agent_structured.get('reasoning', '')
+                                
+                                verification_results[keyword] = {
+                                    'verdict': final_verdict,
+                                    'match_percentage': match_percentage,
+                                    'reasoning': reasoning
+                                }
+                                
+                                run_log.info(f"Verification result for '{keyword}': {final_verdict} ({match_percentage}% match)")
+                            
+                            except Exception as e:
+                                run_log.warning(f"Error verifying '{keyword}': {str(e)}")
+                                verification_results[keyword] = {
+                                    'verdict': 'irrelevant',
+                                    'match_percentage': 0,
+                                    'reasoning': f'Verification error: {str(e)}'
+                                }
+                            
+                            completed_verifications += 1
+                            if progress_callback:
+                                progress_percent = 98 + (completed_verifications / len(competitor_relevant_keywords)) * 1
+                                await progress_callback(progress_percent, f"Verifying keywords ({completed_verifications}/{len(competitor_relevant_keywords)})...")
+                    
+                    # Run all verifications concurrently
+                    verify_tasks = [verify_keyword(cat) for cat in competitor_relevant_keywords]
+                    await asyncio.gather(*verify_tasks)
+                    
+                    # Step 3: Update merged_evaluations with verification results
+                    run_log.info("Step 9c: Updating categories with verification results")
+                    
+                    for cat in merged_evaluations:
+                        keyword = cat.get('keyword')
+                        if keyword in verification_results:
+                            result = verification_results[keyword]
+                            if result['verdict'] == 'relevant':
+                                # Change from competitor_relevant to relevant
+                                cat['category'] = 'relevant'
+                                cat['relevance_score'] = 8
+                                cat['reasoning'] = f"Verified as relevant: {result['reasoning']}"
+                                verified_count += 1
+                                run_log.info(f"Updated '{keyword}' to relevant (verified)")
+                            else:
+                                # Change to irrelevant
+                                cat['category'] = 'irrelevant'
+                                cat['relevance_score'] = 3
+                                cat['reasoning'] = f"Verified as irrelevant: {result['reasoning']}"
+                                run_log.info(f"Updated '{keyword}' to irrelevant (verified)")
+                    
+                    run_log.info(f"✅ Verification complete: {verified_count} keywords verified as relevant")
+                
+                except Exception as e:
+                    run_log.error(f"Error in competitor_relevant verification: {str(e)}")
+                    run_log.warning("Continuing with original competitor_relevant categorizations")
+            else:
+                run_log.info("No competitor_relevant keywords to verify")
+            
+            # Step 10: Create Final Comprehensive CSV with All Tags
             if progress_callback:
                 await progress_callback(100, "Creating final comprehensive CSV...")
             
-            logger.info("Step 9: Creating final comprehensive CSV with all tags")
-            run_log.info("Step 9: Creating final comprehensive CSV with all tags")
+            logger.info("Step 10: Creating final comprehensive CSV with all tags")
+            run_log.info("Step 10: Creating final comprehensive CSV with all tags")
             
             # Prepare final output with all tags and information
             final_output_with_tags = []
