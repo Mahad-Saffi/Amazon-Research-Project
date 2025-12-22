@@ -101,3 +101,23 @@ class KeywordCategorizationResult(BaseModel):
     """Result from categorization agent"""
     model_config = ConfigDict(extra='forbid')
     categorizations: List[KeywordCategory] = Field(description="Categorization for each keyword")
+
+
+# ============================================================================
+# Enhanced Irrelevant Categorization Schemas
+# ============================================================================
+
+class EnhancedIrrelevantAnalysis(BaseModel):
+    """Individual enhanced irrelevant keyword analysis"""
+    model_config = ConfigDict(extra='forbid')
+    keyword: str
+    final_category: str = Field(description="Either 'completely_irrelevant' or 'competitor_relevant'")
+    reasoning: str = Field(description="2-3 sentence explanation of the decision")
+    modifier_analysis: str = Field(description="Brief analysis of the extracted modifiers")
+    competitor_evidence: str = Field(description="Summary of what competitor titles show")
+
+
+class KeywordEnhancedIrrelevantResult(BaseModel):
+    """Result from enhanced irrelevant categorization agent"""
+    model_config = ConfigDict(extra='forbid')
+    analyses: List[EnhancedIrrelevantAnalysis] = Field(description="Enhanced analysis for each keyword")

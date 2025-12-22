@@ -486,6 +486,82 @@ class ResearchPipeline:
             
             run_log.info(f"✅ Categories updated with validation results: {overwritten_count} keywords overwritten to IRRELEVANT")
             
+            # Step 8: Enhanced Irrelevant Categorization (Python Logic + Scraping)
+            # Categorize irrelevant keywords as either 'irrelevant' or 'competitor_relevant'
+            irrelevant_keywords = [cat.get('keyword') for cat in keyword_evaluations 
+                                 if cat.get('category') == 'irrelevant']
+            
+            # Get top 3 relevant keywords by search volume
+            relevant_keywords_sorted = sorted(
+                [cat for cat in keyword_evaluations 
+                 if cat.get('category') in ['relevant', 'design_specific']],
+                key=lambda x: int(x.get('Search Volume', 0)) if x.get('Search Volume') else 0,
+                reverse=True
+            )[:3]
+            
+            relevant_keywords = [cat.get('keyword') for cat in relevant_keywords_sorted]
+            
+            if irrelevant_keywords and relevant_keywords:
+                run_log.info(f"Step 8: Categorizing {len(irrelevant_keywords)} irrelevant keywords")
+                run_log.info(f"Using top 3 relevant keywords: {relevant_keywords}")
+                
+                try:
+                    # Scrape competitor titles from top 3 relevant keywords
+                    from Experimental.amazon_keyword_scraper import AmazonKeywordScraper
+                    
+                    all_competitor_titles = []
+                    scraper = AmazonKeywordScraper()
+                    
+                    try:
+                        scraper.warm_up()
+                        
+                        for keyword in relevant_keywords:
+                            try:
+                                run_log.info(f"Scraping competitor titles for: {keyword}")
+                                html = scraper.scrape_search_html(keyword, page=1)
+                                titles = scraper.extract_product_titles(html)
+                                all_competitor_titles.extend(titles)
+                                run_log.info(f"Scraped {len(titles)} titles for '{keyword}'")
+                            except Exception as e:
+                                run_log.warning(f"Could not scrape '{keyword}': {str(e)}")
+                                continue
+                    finally:
+                        scraper.close()
+                    
+                    if all_competitor_titles:
+                        run_log.info(f"Total competitor titles scraped: {len(all_competitor_titles)}")
+                        
+                        # Use Python function to categorize irrelevant keywords
+                        from research_agents.enhanced_irrelevant_logic import categorize_irrelevant_keywords
+                        
+                        enhanced_categories = categorize_irrelevant_keywords(
+                            irrelevant_keywords,
+                            relevant_keywords,
+                            all_competitor_titles
+                        )
+                        
+                        # Update keyword evaluations with enhanced categorization
+                        competitor_relevant_count = 0
+                        for cat in keyword_evaluations:
+                            keyword = cat.get('keyword')
+                            if keyword in enhanced_categories:
+                                new_category = enhanced_categories[keyword]
+                                if new_category == 'competitor_relevant':
+                                    cat['category'] = 'competitor_relevant'
+                                    cat['reasoning'] = 'Market demand exists for this variation, but we do not offer it'
+                                    competitor_relevant_count += 1
+                                    run_log.info(f"Categorized '{keyword}' as competitor_relevant")
+                        
+                        run_log.info(f"✅ Enhanced categorization complete: {competitor_relevant_count} keywords marked as competitor_relevant")
+                    else:
+                        run_log.warning("No competitor titles scraped - skipping enhanced categorization")
+                
+                except Exception as e:
+                    run_log.error(f"Error in enhanced irrelevant categorization: {str(e)}")
+                    run_log.warning("Continuing with original categorizations")
+            else:
+                run_log.info(f"Skipping enhanced categorization: need irrelevant keywords and relevant keywords")
+            
             # Map category to relevance_score using Python function
             for cat in keyword_evaluations:
                 category = cat.get('category', 'relevant')
@@ -494,6 +570,9 @@ class ResearchPipeline:
                 if category == 'irrelevant':
                     # Irrelevant: 1-4 (use 3 as default)
                     cat['relevance_score'] = 3
+                elif category == 'competitor_relevant':
+                    # Competitor relevant: 4-5 (market demand exists but we don't offer it)
+                    cat['relevance_score'] = 4
                 elif category == 'outlier':
                     # Outlier: 5-6 (use 5 as default)
                     cat['relevance_score'] = 5
@@ -601,12 +680,13 @@ class ResearchPipeline:
             
             logger.info(f"Total results: {len(merged_evaluations)} ({len(keyword_evaluations)} evaluated + {len(branded_rows)} branded)")
             
-            # Filter to relevance_score >= 5 (but keep branded and irrelevant keywords for visibility)
+            # Filter to relevance_score >= 5 (but keep branded, irrelevant, and competitor_relevant keywords for visibility)
             merged_evaluations = [
                 row for row in merged_evaluations 
                 if row.get('relevance_score', 0) >= 5 
                 or row.get('brand_status') == 'Branded'
                 or row.get('category', '').lower() == 'irrelevant'
+                or row.get('category', '').lower() == 'competitor_relevant'
             ]
             
             # Sort by search volume descending
@@ -688,6 +768,46 @@ class ResearchPipeline:
                     }
                 }
             
+            # Step 9: Create Final Comprehensive CSV with All Tags
+            if progress_callback:
+                await progress_callback(100, "Creating final comprehensive CSV...")
+            
+            logger.info("Step 9: Creating final comprehensive CSV with all tags")
+            run_log.info("Step 9: Creating final comprehensive CSV with all tags")
+            
+            # Prepare final output with all tags and information
+            final_output_with_tags = []
+            
+            for row in merged_evaluations:
+                # Build comprehensive output row with all tags
+                output_row = {
+                    'keyword': row.get('keyword') or row.get('Keyword Phrase', ''),
+                    'category': row.get('category', 'unknown'),
+                    'relevance_score': row.get('relevance_score', 0),
+                    'relevance_rationale': row.get('reasoning', ''),
+                    'tag': row.get('tag', ''),
+                    'category_rationale': row.get('reasoning', ''),
+                    'search_volume': row.get('Search Volume', ''),
+                    'title_density': row.get('Title Density', ''),
+                    'position_rank': row.get('Position (Rank)', ''),
+                    'brand_status': row.get('brand_status', 'Non-Branded'),
+                    'brand_reasoning': row.get('brand_reasoning', ''),
+                }
+                
+                # Add all competitor columns (B0* ASINs)
+                for key in row.keys():
+                    if key.startswith('B0'):
+                        output_row[key] = row.get(key, '')
+                
+                # Add competitor relevance formula
+                output_row['competitor_relevance_formula'] = row.get('Relevance', '')
+                
+                final_output_with_tags.append(output_row)
+            
+            # Save final comprehensive CSV
+            final_csv_filename = self._save_final_comprehensive_csv(final_output_with_tags, asin_or_url)
+            run_log.info(f"✅ Final comprehensive CSV saved: {final_csv_filename}")
+            
             # Auto-save CSV to results folder
             csv_filename = self._save_results_to_csv(merged_evaluations, asin_or_url)
             
@@ -697,6 +817,7 @@ class ResearchPipeline:
                 "keyword_evaluations": merged_evaluations,
                 "scraped_data": scraped_data,
                 "csv_filename": csv_filename,
+                "final_csv_filename": final_csv_filename,
                 "log_file": self.run_logger.get_log_file_path() if self.run_logger else None,
                 "metadata": {
                     "asin_or_url": asin_or_url,
@@ -853,4 +974,67 @@ class ResearchPipeline:
             
         except Exception as e:
             logger.error(f"❌ Error saving CSV: {str(e)}")
+            return ""
+
+    def _save_final_comprehensive_csv(self, evaluations: List[Dict[str, Any]], asin_or_url: str) -> str:
+        """
+        Save final comprehensive CSV with all tags and information.
+        This is the main output file with complete keyword analysis.
+        """
+        try:
+            # Check if we have data to save
+            if not evaluations:
+                logger.warning("⚠️  No evaluations to save")
+                return ""
+            
+            # Create results directory if it doesn't exist
+            results_dir = Path("results")
+            results_dir.mkdir(exist_ok=True)
+            
+            # Generate filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            asin_clean = asin_or_url.replace('/', '_').replace(':', '_').replace('?', '_')[:50]
+            filename = f"FINAL_keyword_analysis_{asin_clean}_{timestamp}.csv"
+            filepath = results_dir / filename
+            
+            # Define comprehensive field order for final output
+            fieldnames = [
+                'keyword',
+                'category',
+                'relevance_score',
+                'relevance_rationale',
+                'tag',
+                'category_rationale',
+                'search_volume',
+                'title_density',
+                'position_rank',
+                'brand_status',
+                'brand_reasoning',
+                'competitor_relevance_formula'
+            ]
+            
+            # Add ASIN columns dynamically
+            asin_columns = []
+            if evaluations:
+                for key in evaluations[0].keys():
+                    if key.startswith('B0') and key not in fieldnames:
+                        asin_columns.append(key)
+            
+            # Combine fieldnames
+            all_fieldnames = fieldnames + sorted(asin_columns)
+            
+            # Write CSV with UTF-8 encoding
+            with open(filepath, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.DictWriter(f, fieldnames=all_fieldnames, extrasaction='ignore')
+                writer.writeheader()
+                writer.writerows(evaluations)
+            
+            logger.info(f"✅ Final comprehensive CSV saved to: {filepath}")
+            logger.info(f"   Total keywords: {len(evaluations)}")
+            logger.info(f"   File: {filename}")
+            
+            return str(filename)
+            
+        except Exception as e:
+            logger.error(f"❌ Error saving final comprehensive CSV: {str(e)}")
             return ""
