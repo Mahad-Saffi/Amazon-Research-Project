@@ -401,6 +401,17 @@
                 </label>
             </div>
             
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="useDirectVerification">
+                    Use direct verification (scrape all irrelevant keywords directly)
+                </label>
+                <small style="display: block; margin-top: 5px; color: #666;">
+                    ℹ️ Unchecked: Enhanced method (Python logic + scrape top 3 relevant keywords)<br>
+                    ℹ️ Checked: Direct method (scrape each irrelevant keyword individually)
+                </small>
+            </div>
+            
             <button type="submit" id="submitBtn">Analyze Product</button>
         </form>
     </div>
@@ -464,6 +475,8 @@
             <div class="control-group">
                 <span id="resultCount">0 results</span>
             </div>
+            
+            <button id="downloadCsvBtn" type="button" style="margin-left: auto;">Download CSV</button>
         </div>
         
         <div class="table-container">
@@ -505,6 +518,7 @@
             formData.append('asin_or_url', document.getElementById('asinUrl').value);
             formData.append('marketplace', document.getElementById('marketplace').value);
             formData.append('use_mock_scraper', document.getElementById('useMock').checked);
+            formData.append('use_direct_verification', document.getElementById('useDirectVerification').checked);
             formData.append('request_id', requestId);
             
             // Start smooth progress animation
@@ -609,11 +623,13 @@
         let currentSort = 'relevance';
         let currentFilter = 'all';
         let currentCategoryFilter = 'all';
+        let lastCsvFilename = '';
         
         function displayResults(data) {
             const metadata = data.metadata || {};
             allEvaluations = data.keyword_evaluations || [];
             const summary = data.product_summary || [];
+            lastCsvFilename = data.csv_filename || '';
             
             // Show saved file info or warning
             const savedFileDiv = document.getElementById('savedFile');
@@ -684,6 +700,9 @@
                 renderTable();
             });
             
+            // Set up download button
+            document.getElementById('downloadCsvBtn').addEventListener('click', downloadCsv);
+            
             // Initial render
             renderTable();
             
@@ -692,6 +711,26 @@
             
             // Scroll to results
             document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function downloadCsv() {
+            if (!lastCsvFilename) {
+                alert('No CSV file available for download');
+                return;
+            }
+            
+            // Extract just the filename from the path
+            const filename = lastCsvFilename.split('/').pop();
+            
+            // Create download link
+            const link = document.createElement('a');
+            link.href = `/api/research/download/${encodeURIComponent(filename)}`;
+            link.download = filename;
+            link.style.visibility = 'hidden';
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
         
         function renderTable() {
