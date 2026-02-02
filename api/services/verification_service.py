@@ -4,6 +4,7 @@ Competitor relevant verification service
 import logging
 import asyncio
 from typing import List, Dict, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from agents import Runner
 from research_agents.competitor_relevant_verification_agent import competitor_relevant_verification_agent
