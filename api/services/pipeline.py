@@ -68,6 +68,17 @@ class ResearchPipeline:
             if not design_rows and not revenue_rows:
                 return self._error_response("No valid keywords found in CSV files")
             
+            # Filter out keywords with 0 search volume
+            design_rows = [row for row in design_rows 
+                          if row.get('Search Volume') and int(row.get('Search Volume', 0)) > 0]
+            revenue_rows = [row for row in revenue_rows 
+                           if row.get('Search Volume') and int(row.get('Search Volume', 0)) > 0]
+            
+            run_log.info(f"After filtering 0 volume: {len(design_rows)} design, {len(revenue_rows)} revenue")
+            
+            if not design_rows and not revenue_rows:
+                return self._error_response("No keywords with search volume > 0 found")
+            
             # Step 5: Extract root keywords (28-32%)
             if progress_callback:
                 await progress_callback(28, "Extracting root keywords...")
