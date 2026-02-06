@@ -1,11 +1,13 @@
 """
 Research endpoint for processing Amazon product analysis
 """
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 import logging
 import asyncio
 from pathlib import Path
+import json
+import base64
 
 from api.services.pipeline import ResearchPipeline
 
@@ -124,4 +126,97 @@ async def download_csv(filename: str):
     except Exception as e:
         logger.error(f"Error downloading file: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.websocket("/research/ws")
+async def websocket_research(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time research pipeline with progress updates.
+    
+    Receives:
+    - design_csv: base64 encoded CSV content
+    - revenue_csv: base64 encoded CSV content
+    - asin_or_url: Amazon ASIN or product URL
+    - marketplace: Marketplace code (US, UK, CA, etc.)
+    - use_mock_scraper: Use mock data for testing
+    - use_direct_verification: Use direct verification method
+    - request_id: Request ID for logging
+    
+    Sends:
+    - progress updates: {"type": "progress", "percent": int, "message": str}
+    - final result: {"type": "complete", "data": dict}
+    - errors: {"type": "error", "error": str}
+    """
+    await websocket.accept()
+    logger.info("WebSocket connection established")
+    
+    try:
+        # Receive initial data from client
+        data = await websocket.receive_json()
+        logger.info(f"Received WebSocket data for: {data.get('asin_or_url')}")
+        
+        # Extract parameters
+        asin_or_url = data.get("asin_or_url")
+        marketplace = data.get("marketplace", "US")
+        use_mock_scraper = data.get("use_mock_scraper", False)
+        use_direct_verification = data.get("use_direct_verification", False)
+        request_id = data.get("request_id", "")
+        
+        # Decode base64 file data
+        design_content = base64.b64decode(data.get("design_csv"))
+        revenue_content = base64.b64decode(data.get("revenue_csv"))
+        
+        logger.info(f"Files decoded - Design: {len(design_content)} bytes, Revenue: {len(revenue_content)} bytes")
+        
+        # Progress callback that sends updates via WebSocket
+        async def ws_progress_callback(percent, message):
+            try:
+                await websocket.send_json({
+                    "type": "progress",
+                    "percent": percent,
+                    "message": message
+                })
+                logger.debug(f"Progress sent: {percent}% - {message}")
+            except Exception as e:
+                logger.error(f"Error sending progress: {e}")
+        
+        # Initialize pipeline
+        pipeline = ResearchPipeline()
+        
+        # Run pipeline with WebSocket progress updates
+        logger.info("Starting pipeline execution via WebSocket")
+        result = await pipeline.run_complete_pipeline(
+            design_csv_content=design_content,
+            revenue_csv_content=revenue_content,
+            asin_or_url=asin_or_url,
+            marketplace=marketplace,
+            use_mock_scraper=use_mock_scraper,
+            use_direct_verification=use_direct_verification,
+            progress_callback=ws_progress_callback,
+            request_id=request_id if request_id else None
+        )
+        
+        # Send final result
+        logger.info("Pipeline complete, sending final result")
+        await websocket.send_json({
+            "type": "complete",
+            "data": result
+        })
+        
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected by client")
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}", exc_info=True)
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "error": str(e)
+            })
+        except:
+            logger.error("Failed to send error message to client")
+    finally:
+        try:
+            await websocket.close()
+            logger.info("WebSocket connection closed")
+        except:
+            pass
 

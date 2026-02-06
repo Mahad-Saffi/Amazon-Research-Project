@@ -21,62 +21,101 @@ document.getElementById('researchForm').addEventListener('submit', async functio
     // Generate request ID
     const requestId = 'req_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     
-    // Prepare form data
-    const formData = new FormData();
-    formData.append('design_csv', document.getElementById('designCsv').files[0]);
-    formData.append('revenue_csv', document.getElementById('revenueCsv').files[0]);
-    formData.append('asin_or_url', document.getElementById('asinUrl').value);
-    formData.append('marketplace', document.getElementById('marketplace').value);
-    formData.append('use_mock_scraper', document.getElementById('useMock').checked);
-    formData.append('use_direct_verification', document.getElementById('useDirectVerification').checked);
-    formData.append('request_id', requestId);
-    
     // Start smooth progress animation
     startSmoothProgress();
     
-    // Start progress polling
-    const progressInterval = setInterval(async () => {
-        try {
-            const progressResponse = await fetch(`/api/research/progress/${requestId}`);
-            const progressData = await progressResponse.json();
-            targetProgress = progressData.percent;
-            updateProgress(progressData.percent, progressData.message, getProgressDetails(progressData.percent));
-        } catch (err) {
-            console.error('Progress update error:', err);
-        }
-    }, 300);
-    
     try {
-        const response = await fetch('/api/research/json', {
-            method: 'POST',
-            body: formData
-        });
+        // Read files as base64
+        const designFile = document.getElementById('designCsv').files[0];
+        const revenueFile = document.getElementById('revenueCsv').files[0];
         
-        const data = await response.json();
+        const designBase64 = await fileToBase64(designFile);
+        const revenueBase64 = await fileToBase64(revenueFile);
         
-        clearInterval(progressInterval);
-        stopSmoothProgress();
-        targetProgress = 100;
-        updateProgress(100, 'Complete!', 'Analysis finished successfully');
+        // Create WebSocket connection
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/api/research/ws`;
+        const ws = new WebSocket(wsUrl);
         
-        // Small delay to show 100%
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Handle WebSocket open
+        ws.onopen = () => {
+            console.log('WebSocket connected');
+            // Send data to server
+            ws.send(JSON.stringify({
+                design_csv: designBase64,
+                revenue_csv: revenueBase64,
+                asin_or_url: document.getElementById('asinUrl').value,
+                marketplace: document.getElementById('marketplace').value,
+                use_mock_scraper: document.getElementById('useMock').checked,
+                use_direct_verification: document.getElementById('useDirectVerification').checked,
+                request_id: requestId
+            }));
+        };
         
-        if (response.ok && data.success) {
-            displayResults(data);
-        } else {
-            throw new Error(data.error || data.detail || 'Unknown error');
-        }
+        // Handle WebSocket messages
+        ws.onmessage = async (event) => {
+            const message = JSON.parse(event.data);
+            
+            if (message.type === 'progress') {
+                targetProgress = message.percent;
+                updateProgress(message.percent, message.message, getProgressDetails(message.percent));
+            } else if (message.type === 'complete') {
+                stopSmoothProgress();
+                targetProgress = 100;
+                updateProgress(100, 'Complete!', 'Analysis finished successfully');
+                
+                // Small delay to show 100%
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const data = message.data;
+                if (data.success) {
+                    displayResults(data);
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+                
+                ws.close();
+            } else if (message.type === 'error') {
+                throw new Error(message.error);
+            }
+        };
+        
+        // Handle WebSocket errors
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            throw new Error('WebSocket connection failed');
+        };
+        
+        // Handle WebSocket close
+        ws.onclose = () => {
+            console.log('WebSocket closed');
+            stopSmoothProgress();
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('submitBtn').disabled = false;
+        };
+        
     } catch (error) {
-        clearInterval(progressInterval);
         stopSmoothProgress();
         document.getElementById('error').textContent = `Error: ${error.message}`;
         document.getElementById('error').style.display = 'block';
-    } finally {
         document.getElementById('loading').style.display = 'none';
         document.getElementById('submitBtn').disabled = false;
     }
 });
+
+// Helper function to convert file to base64
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            // Remove the data:*/*;base64, prefix
+            const base64 = reader.result.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
 
 function startSmoothProgress() {
     function animate() {
