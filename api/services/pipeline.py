@@ -19,6 +19,25 @@ from api.services.direct_verification_service import DirectVerificationService
 
 logger = logging.getLogger(__name__)
 
+
+def safe_int(value, default=0):
+    """Safely convert value to int, handling strings, None, and invalid values"""
+    if value is None:
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            # Remove commas and whitespace
+            cleaned = value.replace(',', '').strip()
+            return int(float(cleaned))
+        except (ValueError, AttributeError):
+            return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
 class ResearchPipeline:
     """Simplified pipeline orchestrating specialized services"""
     
@@ -71,26 +90,18 @@ class ResearchPipeline:
             
             # Filter out keywords with 0 search volume
             design_rows = [row for row in design_rows 
-                          if row.get('Search Volume') and int(row.get('Search Volume', 0)) > 0]
+                          if row.get('Search Volume') and safe_int(row.get('Search Volume')) > 0]
             revenue_rows = [row for row in revenue_rows 
-                           if row.get('Search Volume') and int(row.get('Search Volume', 0)) > 0]
+                           if row.get('Search Volume') and safe_int(row.get('Search Volume')) > 0]
             
             run_log.info(f"After filtering 0 volume: {len(design_rows)} design, {len(revenue_rows)} revenue")
             
             if not design_rows and not revenue_rows:
                 return self._error_response("No keywords with search volume > 0 found")
             
-            # Step 5: Extract root keywords (28-32%)
+            # Step 5: Brand Detection (28-36%)
             if progress_callback:
-                await progress_callback(28, "Extracting root keywords...")
-            
-            root_keywords = self.csv_processor.extract_root_keywords(design_rows, revenue_rows)
-            top_10_roots = [rk['keyword'] for rk in root_keywords[:10]]
-            logger.info(f"Top 10 roots: {top_10_roots}")
-            
-            # Step 5.5: Brand Detection (33-36%)
-            if progress_callback:
-                await progress_callback(33, "Detecting branded keywords...")
+                await progress_callback(28, "Detecting branded keywords...")
             
             all_keywords = list(set([row['Keyword Phrase'] for row in design_rows + revenue_rows]))
             branded_kws, non_branded_kws = await self.brand_service.detect_brands(all_keywords)
@@ -105,9 +116,20 @@ class ResearchPipeline:
             branded_rows = [row for row in design_rows + revenue_rows 
                           if row['Keyword Phrase'].lower() in branded_set]
             
-            # Step 6: Scrape Amazon (35-45%)
+            run_log.info(f"Filtered to {len(filtered_rows)} non-branded keywords for evaluation")
+            
+            # Step 5.5: Extract root keywords from NON-BRANDED keywords only (36-40%)
             if progress_callback:
-                await progress_callback(35, "Scraping Amazon product...")
+                await progress_callback(36, "Extracting root keywords...")
+            
+            # Extract roots from non-branded keywords only
+            root_keywords = self.csv_processor.extract_root_keywords(filtered_rows, [])
+            top_10_roots = [rk['keyword'] for rk in root_keywords[:10]]
+            run_log.info(f"Top 10 roots from non-branded keywords: {top_10_roots}")
+            
+            # Step 6: Scrape Amazon (40-50%)
+            if progress_callback:
+                await progress_callback(40, "Scraping Amazon product...")
             
             scrape_result = self.scraper_service.scrape_product(
                 asin_or_url, marketplace, use_mock_scraper
@@ -121,7 +143,7 @@ class ResearchPipeline:
             scraped_data = scrape_result["data"]
             
             if progress_callback:
-                await progress_callback(45, "Product data retrieved")
+                await progress_callback(50, "Product data retrieved")
             
             # Step 7: Filter by top 10 roots
             keywords_to_evaluate = [
@@ -129,7 +151,10 @@ class ResearchPipeline:
                 if any(root.lower() in row['Keyword Phrase'].lower() for root in top_10_roots)
             ]
             
+            run_log.info(f"Keywords to evaluate after root filtering: {len(keywords_to_evaluate)}")
+            
             if not keywords_to_evaluate:
+                run_log.warning(f"No keywords matched top 10 roots. Filtered rows: {len(filtered_rows)}, Top roots: {top_10_roots}")
                 return self._success_response([], product_title, product_bullets, scraped_data, 
                                              asin_or_url, marketplace, top_10_roots)
             
@@ -427,7 +452,7 @@ class ResearchPipeline:
         merged = [row for row in merged if row.get('relevance_score', 0) >= 5 
                  or row.get('category') in ['branded', 'irrelevant', 'competitor_relevant']]
         
-        merged.sort(key=lambda x: int(x.get('Search Volume', 0)) if x.get('Search Volume') else 0, 
+        merged.sort(key=lambda x: safe_int(x.get('Search Volume')), 
                    reverse=True)
         
         return merged

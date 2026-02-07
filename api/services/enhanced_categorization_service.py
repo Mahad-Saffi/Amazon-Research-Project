@@ -11,6 +11,26 @@ from Experimental.amazon_keyword_scraper import AmazonKeywordScraper
 
 logger = logging.getLogger(__name__)
 
+
+def safe_int(value, default=0):
+    """Safely convert value to int, handling strings, None, and invalid values"""
+    if value is None:
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            # Remove commas and whitespace
+            cleaned = value.replace(',', '').strip()
+            return int(float(cleaned))
+        except (ValueError, AttributeError):
+            return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
 class EnhancedCategorizationService:
     """
     Categorize irrelevant keywords using Python logic and competitor scraping
@@ -48,7 +68,7 @@ class EnhancedCategorizationService:
         relevant_keywords_sorted = sorted(
             [cat for cat in keyword_evaluations 
              if cat.get('category') in ['relevant', 'design_specific']],
-            key=lambda x: int(x.get('Search Volume', 0)) if x.get('Search Volume') else 0,
+            key=lambda x: safe_int(x.get('Search Volume')),
             reverse=True
         )[:3]
         

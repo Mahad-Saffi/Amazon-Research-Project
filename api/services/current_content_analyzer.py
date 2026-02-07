@@ -8,6 +8,26 @@ import re
 
 logger = logging.getLogger(__name__)
 
+
+def safe_int(value, default=0):
+    """Safely convert value to int, handling strings, None, and invalid values"""
+    if value is None:
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            # Remove commas and whitespace
+            cleaned = value.replace(',', '').strip()
+            return int(float(cleaned))
+        except (ValueError, AttributeError):
+            return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
 class CurrentContentAnalyzer:
     """Analyzes current product title and bullet points"""
     
@@ -173,12 +193,7 @@ class CurrentContentAnalyzer:
             
             # Check if keyword is in text (whole word match)
             if self._is_keyword_in_text(keyword_lower, text_lower):
-                search_volume = kw_data.get('Search Volume', 0)
-                if search_volume:
-                    try:
-                        search_volume = int(search_volume)
-                    except (ValueError, TypeError):
-                        search_volume = 0
+                search_volume = safe_int(kw_data.get('Search Volume'))
                 
                 position = text_lower.find(keyword_lower)
                 

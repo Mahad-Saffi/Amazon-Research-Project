@@ -8,6 +8,26 @@ import re
 
 logger = logging.getLogger(__name__)
 
+
+def safe_int(value, default=0):
+    """Safely convert value to int, handling strings, None, and invalid values"""
+    if value is None:
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            # Remove commas and whitespace
+            cleaned = value.replace(',', '').strip()
+            return int(float(cleaned))
+        except (ValueError, AttributeError):
+            return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
 class KeywordVariantDetector:
     """Detects keyword variants like singular/plural, pronoun differences"""
     
@@ -43,7 +63,7 @@ class KeywordVariantDetector:
                 'variants': variants,
                 'best_variant': best_variant,
                 'variant_count': len(variants),
-                'total_search_volume': sum(v.get('Search Volume', 0) or 0 for v in variants)
+                'total_search_volume': sum(safe_int(v.get('Search Volume')) for v in variants)
             })
         
         # Sort by total search volume
@@ -153,16 +173,16 @@ class KeywordVariantDetector:
         # Sort by search volume
         sorted_variants = sorted(
             variants,
-            key=lambda x: int(x.get('Search Volume', 0) or 0),
+            key=lambda x: safe_int(x.get('Search Volume')),
             reverse=True
         )
         
-        highest_volume = int(sorted_variants[0].get('Search Volume', 0) or 0)
+        highest_volume = safe_int(sorted_variants[0].get('Search Volume'))
         
         # Check if top variants have similar volume (within 20%)
         similar_volume_variants = []
         for v in sorted_variants:
-            volume = int(v.get('Search Volume', 0) or 0)
+            volume = safe_int(v.get('Search Volume'))
             if volume >= highest_volume * 0.8:
                 similar_volume_variants.append(v)
             else:

@@ -9,6 +9,26 @@ import re
 
 logger = logging.getLogger(__name__)
 
+
+def safe_int(value, default=0):
+    """Safely convert value to int, handling strings, None, and invalid values"""
+    if value is None:
+        return default
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        try:
+            # Remove commas and whitespace
+            cleaned = value.replace(',', '').strip()
+            return int(float(cleaned))
+        except (ValueError, AttributeError):
+            return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+
 class KeywordRootAnalyzer:
     """Analyzes keyword roots and groups keywords by their roots"""
     
@@ -150,12 +170,9 @@ class KeywordRootAnalyzer:
             
             for kw in keywords:
                 # Get search volume
-                sv = kw.get('Search Volume', 0)
+                sv = safe_int(kw.get('Search Volume'))
                 if sv:
-                    try:
-                        search_volumes.append(int(sv))
-                    except (ValueError, TypeError):
-                        pass
+                    search_volumes.append(sv)
                 
                 # Get category
                 cat = kw.get('category', '')
