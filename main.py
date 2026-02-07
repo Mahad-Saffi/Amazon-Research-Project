@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 
 from api.endpoints import research
+from api.endpoints import seo
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +31,7 @@ if static_dir.exists():
 
 # Include routers
 app.include_router(research.router, prefix="/api", tags=["research"])
+app.include_router(seo.router, prefix="/api", tags=["seo"])
 
 @app.get("/")
 async def root():

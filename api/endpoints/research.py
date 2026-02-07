@@ -159,6 +159,7 @@ async def websocket_research(websocket: WebSocket):
         marketplace = data.get("marketplace", "US")
         use_mock_scraper = data.get("use_mock_scraper", False)
         use_direct_verification = data.get("use_direct_verification", False)
+        include_seo_optimization = data.get("include_seo_optimization", True)  # New parameter
         request_id = data.get("request_id", "")
         
         # Decode base64 file data
@@ -191,6 +192,7 @@ async def websocket_research(websocket: WebSocket):
             marketplace=marketplace,
             use_mock_scraper=use_mock_scraper,
             use_direct_verification=use_direct_verification,
+            include_seo_optimization=include_seo_optimization,  # Pass parameter
             progress_callback=ws_progress_callback,
             request_id=request_id if request_id else None
         )

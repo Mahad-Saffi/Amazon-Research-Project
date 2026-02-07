@@ -48,6 +48,7 @@ document.getElementById('researchForm').addEventListener('submit', async functio
                 marketplace: document.getElementById('marketplace').value,
                 use_mock_scraper: document.getElementById('useMock').checked,
                 use_direct_verification: document.getElementById('useDirectVerification').checked,
+                include_seo_optimization: document.getElementById('includeSeoOptimization').checked,
                 request_id: requestId
             }));
         };
@@ -233,6 +234,11 @@ function displayResults(data) {
         document.getElementById('summary').style.display = 'none';
     }
     
+    // Display SEO Optimization if available
+    if (data.seo_optimization && data.seo_optimization.success) {
+        displaySEOOptimization(data.seo_optimization);
+    }
+    
     // Set up event listeners for sorting and filtering
     document.getElementById('sortBy').addEventListener('change', function(e) {
         currentSort = e.target.value;
@@ -381,4 +387,145 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+
+function displaySEOOptimization(seoData) {
+    // Create SEO section if it doesn't exist
+    let seoSection = document.getElementById('seoOptimization');
+    if (!seoSection) {
+        seoSection = document.createElement('div');
+        seoSection.id = 'seoOptimization';
+        seoSection.className = 'seo-optimization';
+        
+        // Insert before keyword evaluations
+        const results = document.getElementById('results');
+        const keywordHeading = results.querySelector('h2');
+        results.insertBefore(seoSection, keywordHeading);
+    }
+    
+    const comparison = seoData.detailed_comparison;
+    
+    let html = `
+        <h2>📈 SEO Optimization</h2>
+        
+        <div class="seo-improvements">
+            <h3>Improvements</h3>
+            <div class="improvement-stats">
+                <div class="stat">
+                    <span class="stat-label">Search Volume</span>
+                    <span class="stat-value">+${seoData.improvements.search_volume.improvement.toLocaleString()} (${seoData.improvements.search_volume.improvement_percent}%)</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Keywords</span>
+                    <span class="stat-value">+${seoData.improvements.keyword_count.improvement}</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Root Coverage</span>
+                    <span class="stat-value">+${seoData.improvements.root_coverage.improvement} roots</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="seo-comparison">
+            <h3>Title Comparison</h3>
+            <div class="comparison-grid">
+                <div class="comparison-column current">
+                    <h4>Current Title</h4>
+                    <div class="content-box">
+                        <p>${escapeHtml(comparison.title.current.text)}</p>
+                        <div class="metrics">
+                            <span>Characters: ${comparison.title.current.characters}</span>
+                            <span>Keywords: ${comparison.title.current.keyword_count}</span>
+                            <span>Search Volume: ${comparison.title.current.total_search_volume.toLocaleString()}</span>
+                        </div>
+                        ${comparison.title.current.keywords.length > 0 ? `
+                            <div class="keywords-list">
+                                <strong>Keywords:</strong>
+                                ${comparison.title.current.keywords.map(kw => `<span class="keyword-tag">${escapeHtml(kw.display)}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        ${comparison.title.current.duplicates.length > 0 ? `
+                            <div class="duplicates-warning">
+                                ⚠️ Duplicates: ${comparison.title.current.duplicates.map(d => `${d.keyword} (${d.count}x)`).join(', ')}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <div class="comparison-column optimized">
+                    <h4>Optimized Title</h4>
+                    <div class="content-box">
+                        <p>${escapeHtml(comparison.title.optimized.text)}</p>
+                        <div class="metrics">
+                            <span>Characters: ${comparison.title.optimized.characters}</span>
+                            <span>Keywords: ${comparison.title.optimized.keyword_count}</span>
+                            <span>Search Volume: ${comparison.title.optimized.total_search_volume.toLocaleString()}</span>
+                        </div>
+                        ${comparison.title.optimized.keywords.length > 0 ? `
+                            <div class="keywords-list">
+                                <strong>Keywords:</strong>
+                                ${comparison.title.optimized.keywords.map(kw => `<span class="keyword-tag ${kw.is_design_specific ? 'design-specific' : ''}">${escapeHtml(kw.display)}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        ${comparison.title.optimized.duplicates.length > 0 ? `
+                            <div class="duplicates-warning">
+                                ⚠️ Duplicates: ${comparison.title.optimized.duplicates.map(d => `${d.keyword} (${d.count}x)`).join(', ')}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+            
+            <h3>Bullet Points Comparison</h3>
+            <div class="comparison-grid">
+                <div class="comparison-column current">
+                    <h4>Current Bullets</h4>
+                    ${comparison.bullets.current.bullets.map(bullet => `
+                        <div class="bullet-box">
+                            <p><strong>${bullet.bullet_number}.</strong> ${escapeHtml(bullet.text)}</p>
+                            <div class="metrics">
+                                <span>Characters: ${bullet.characters}</span>
+                                <span>Keywords: ${bullet.keyword_count}</span>
+                                <span>Search Volume: ${bullet.search_volume.toLocaleString()}</span>
+                            </div>
+                            ${bullet.keywords.length > 0 ? `
+                                <div class="keywords-list">
+                                    ${bullet.keywords.map(kw => `<span class="keyword-tag">${escapeHtml(kw.display)}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                    <div class="total-metrics">
+                        <strong>Total Search Volume: ${comparison.bullets.current.total_search_volume.toLocaleString()}</strong>
+                    </div>
+                </div>
+                
+                <div class="comparison-column optimized">
+                    <h4>Optimized Bullets</h4>
+                    ${comparison.bullets.optimized.bullets.map(bullet => `
+                        <div class="bullet-box">
+                            <p><strong>${bullet.bullet_number}.</strong> ${escapeHtml(bullet.text)}</p>
+                            <div class="metrics">
+                                <span>Characters: ${bullet.characters}</span>
+                                <span>Keywords: ${bullet.keyword_count}</span>
+                                <span>Search Volume: ${bullet.search_volume.toLocaleString()}</span>
+                            </div>
+                            ${bullet.keywords.length > 0 ? `
+                                <div class="keywords-list">
+                                    ${bullet.keywords.map(kw => `<span class="keyword-tag ${kw.is_design_specific ? 'design-specific' : ''}">${escapeHtml(kw.display)}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                    <div class="total-metrics">
+                        <strong>Total Search Volume: ${comparison.bullets.optimized.total_search_volume.toLocaleString()}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    seoSection.innerHTML = html;
+    seoSection.style.display = 'block';
 }

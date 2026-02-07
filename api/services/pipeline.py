@@ -41,6 +41,7 @@ class ResearchPipeline:
         marketplace: str = "US",
         use_mock_scraper: bool = False,
         use_direct_verification: bool = False,
+        include_seo_optimization: bool = True,  # New parameter
         progress_callback=None,
         request_id: str = None
     ) -> Dict[str, Any]:
@@ -248,6 +249,36 @@ class ResearchPipeline:
             
             run_log.info(f"Pipeline complete: {len(final_results)} results")
             
+            # Optional: Run SEO optimization
+            seo_optimization_result = None
+            if include_seo_optimization and product_title and product_bullets:
+                try:
+                    if progress_callback:
+                        await progress_callback(100, "Running SEO optimization...")
+                    
+                    run_log.info("Running SEO optimization...")
+                    
+                    from api.services.seo_optimization_service import SEOOptimizationService
+                    seo_service = SEOOptimizationService()
+                    
+                    seo_optimization_result = await seo_service.optimize_listing(
+                        current_title=product_title,
+                        current_bullets=product_bullets,
+                        keyword_evaluations=final_results,
+                        product_info={
+                            'asin': asin_or_url,
+                            'marketplace': marketplace
+                        }
+                    )
+                    
+                    run_log.info("SEO optimization complete")
+                except Exception as e:
+                    run_log.error(f"SEO optimization failed: {str(e)}")
+                    seo_optimization_result = {
+                        'success': False,
+                        'error': str(e)
+                    }
+            
             return {
                 "success": True,
                 "product_summary": self._create_summary(product_title, product_bullets),
@@ -255,6 +286,7 @@ class ResearchPipeline:
                 "scraped_data": scraped_data,
                 "csv_filename": csv_filename,
                 "log_file": self.run_logger.get_log_file_path() if self.run_logger else None,
+                "seo_optimization": seo_optimization_result,  # New field
                 "metadata": self._create_metadata(
                     asin_or_url, marketplace, top_10_roots,
                     len(design_rows), len(revenue_rows),
