@@ -3,6 +3,7 @@ Design-Specific Detector Agent
 Uses AI to detect if design-specific keywords are present in current product content
 """
 import logging
+import os
 from typing import List, Dict, Any
 from agents import Agent, ModelSettings, AgentOutputSchema, Runner
 from pydantic import BaseModel
@@ -19,6 +20,10 @@ class DesignSpecificDetectionResult(BaseModel):
     found_in_title: List[str]
     found_in_bullets: List[str]
     reasoning: str
+
+
+# Get model from environment variable
+DESIGN_SPECIFIC_DETECTOR_MODEL = os.getenv("DESIGN_SPECIFIC_DETECTOR_MODEL", "gpt-4o-mini")
 
 
 # Design-Specific Detection Agent
@@ -47,7 +52,7 @@ Return your analysis with:
 - found_in_title: list of design-specific keywords found in title
 - found_in_bullets: list of design-specific keywords found in bullets
 - reasoning: explanation of your decision""",
-    model="gpt-5.2",
+    model=DESIGN_SPECIFIC_DETECTOR_MODEL,
     model_settings=ModelSettings(
         max_tokens=1000,
     ),

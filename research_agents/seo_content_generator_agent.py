@@ -3,6 +3,7 @@ SEO Content Generator Agent
 Generates optimized titles and bullet points with selected keywords
 """
 import logging
+import os
 from typing import List, Dict, Any
 from agents import Agent, ModelSettings, AgentOutputSchema, Runner
 from pydantic import BaseModel
@@ -11,6 +12,11 @@ from dotenv import load_dotenv, find_dotenv
 load_dotenv(find_dotenv())
 
 logger = logging.getLogger(__name__)
+
+
+# Get models from environment variables
+TITLE_GENERATION_AGENT_MODEL = os.getenv("TITLE_GENERATION_AGENT_MODEL", "gpt-4o-mini")
+BULLET_GENERATION_AGENT_MODEL = os.getenv("BULLET_GENERATION_AGENT_MODEL", "gpt-4o-mini")
 
 
 class OptimizedTitleResult(BaseModel):
@@ -63,7 +69,7 @@ Return:
 - keywords_used: List of keywords successfully incorporated
 - character_count: Total character count
 - reasoning: Brief explanation of your optimization strategy""",
-    model="gpt-4o-mini",
+    model=TITLE_GENERATION_AGENT_MODEL,
     model_settings=ModelSettings(
         max_tokens=1500,
     ),
@@ -111,7 +117,7 @@ Return:
 - bullet_points: List of 5 optimized bullet points
 - keywords_per_bullet: List of keywords used in each bullet
 - reasoning: Brief explanation of your optimization strategy""",
-    model="gpt-4o-mini",
+    model=BULLET_GENERATION_AGENT_MODEL,
     model_settings=ModelSettings(
         max_tokens=2000,
     ),
