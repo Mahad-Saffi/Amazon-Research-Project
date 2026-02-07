@@ -10,6 +10,7 @@ from api.services.keyword_variant_detector import KeywordVariantDetector
 from api.services.current_content_analyzer import CurrentContentAnalyzer
 from api.services.keyword_selector import KeywordSelector
 from api.services.amazon_guidelines_validator import AmazonGuidelinesValidator
+from api.services.seo_comparison_service import SEOComparisonService
 from research_agents.seo_content_generator_agent import SEOContentGeneratorAgent
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ class SEOOptimizationService:
         self.keyword_selector = KeywordSelector()
         self.validator = AmazonGuidelinesValidator()
         self.content_generator = SEOContentGeneratorAgent()
+        self.comparison_service = SEOComparisonService()
     
     async def optimize_listing(
         self,
@@ -110,6 +112,18 @@ class SEOOptimizationService:
             optimized_bullets_result
         )
         
+        # Create detailed comparison (Task 8, 9, 10, 12, 13)
+        detailed_comparison = self.comparison_service.create_comparison(
+            current_title,
+            current_bullets,
+            optimized_title_result['optimized_title'],
+            optimized_bullets_result['bullet_points'],
+            current_analysis,
+            keyword_selection,
+            optimized_title_result,
+            optimized_bullets_result
+        )
+        
         logger.info("SEO optimization complete!")
         
         return {
@@ -129,6 +143,7 @@ class SEOOptimizationService:
             },
             'keyword_selection': keyword_selection,
             'improvements': improvements,
+            'detailed_comparison': detailed_comparison,  # Task 8, 9, 10, 12, 13
             'root_analysis': {
                 'total_roots': root_analysis['total_roots'],
                 'top_roots': root_analysis['ranked_roots'][:10]
