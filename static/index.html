@@ -3,146 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Amazon Product Research</title>
+    <title>Amazon Product Research - SEO Optimization</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <h1>Amazon Product Research</h1>
-    
-    <div class="form-section">
-        <form id="researchForm">
-            <div class="form-group">
-                <label for="designCsv">Design CSV File *</label>
-                <input type="file" id="designCsv" accept=".csv" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="revenueCsv">Revenue CSV File *</label>
-                <input type="file" id="revenueCsv" accept=".csv" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="asinUrl">Amazon ASIN or URL *</label>
-                <input type="text" id="asinUrl" placeholder="e.g., B08544GH5F or https://www.amazon.com/dp/B08544GH5F" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="marketplace">Marketplace</label>
-                <select id="marketplace">
-                    <option value="US">United States (US)</option>
-                    <option value="UK">United Kingdom (UK)</option>
-                    <option value="CA">Canada (CA)</option>
-                    <option value="DE">Germany (DE)</option>
-                    <option value="FR">France (FR)</option>
-                    <option value="IT">Italy (IT)</option>
-                    <option value="ES">Spain (ES)</option>
-                    <option value="JP">Japan (JP)</option>
-                </select>
-            </div>
-            
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="useMock">
-                    Use mock scraper (for testing)
-                </label>
-            </div>
-            
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="useDirectVerification">
-                    Use direct verification (scrape all irrelevant keywords directly)
-                </label>
-                <small style="display: block; margin-top: 5px; color: #666;">
-                    ℹ️ Unchecked: Enhanced method (Python logic + scrape top 3 relevant keywords)<br>
-                    ℹ️ Checked: Direct method (scrape each irrelevant keyword individually)
-                </small>
-            </div>
-            
-            <div class="form-group">
-                <label>
-                    <input type="checkbox" id="includeSeoOptimization" checked>
-                    Include SEO Optimization (optimize title and bullet points)
-                </label>
-                <small style="display: block; margin-top: 5px; color: #666;">
-                    ℹ️ Generates optimized title and bullet points with high-volume keywords
-                </small>
-            </div>
-            
-            <button type="submit" id="submitBtn">Analyze Product</button>
-        </form>
-    </div>
-    
-    <div class="loading" id="loading">
-        <div class="progress-bar-container">
-            <div class="progress-bar" id="progressBar">0%</div>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🔍 Amazon Product Research & SEO Optimization</h1>
+            <p>AI-powered keyword research and listing optimization for Amazon sellers</p>
         </div>
-        <div class="progress-message">
-            <span class="spinner"></span>
-            <span id="progressMessage">Starting...</span>
+
+        <!-- Input Form Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span>📁</span> Upload Research Data
+                </div>
+                <div class="card-description">
+                    Upload your keyword CSV files and enter product ASIN
+                </div>
+            </div>
+            <div class="card-content">
+                <form id="researchForm">
+                    <div class="form-group">
+                        <label for="designCsv">Design CSV File *</label>
+                        <input type="file" id="designCsv" accept=".csv" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="revenueCsv">Revenue CSV File *</label>
+                        <input type="file" id="revenueCsv" accept=".csv" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="asinUrl">Amazon ASIN or URL *</label>
+                        <input type="text" id="asinUrl" placeholder="e.g., B08544GH5F or https://www.amazon.com/dp/B08544GH5F" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="marketplace">Marketplace</label>
+                        <select id="marketplace">
+                            <option value="US">United States (US)</option>
+                            <option value="UK">United Kingdom (UK)</option>
+                            <option value="CA">Canada (CA)</option>
+                            <option value="DE">Germany (DE)</option>
+                            <option value="FR">France (FR)</option>
+                            <option value="IT">Italy (IT)</option>
+                            <option value="ES">Spain (ES)</option>
+                            <option value="JP">Japan (JP)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="includeSeoOptimization" checked>
+                            Include SEO Optimization
+                        </label>
+                        <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                            Generates optimized title and bullet points with high-volume keywords
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="useDirectVerification">
+                            Use Direct Verification
+                        </label>
+                        <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                            Scrape each irrelevant keyword individually for verification
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="useMock">
+                            Use Mock Scraper (Testing)
+                        </label>
+                    </div>
+                    
+                    <button type="submit" id="submitBtn" class="button primary" style="width: 100%; justify-content: center;">
+                        <span>🚀</span> Start Analysis
+                    </button>
+                </form>
+            </div>
         </div>
-        <div class="progress-details" id="progressDetails">Initializing...</div>
-    </div>
-    
-    <div class="error" id="error"></div>
-    
-    <div class="results" id="results">
-        <h2>Results</h2>
-        
-        <div class="saved-file" id="savedFile"></div>
-        
-        <div class="metadata" id="metadata"></div>
-        
-        <div class="summary" id="summary"></div>
-        
-        <h2>Keyword Evaluations</h2>
-        
-        <div class="controls">
-            <div class="control-group">
-                <label for="sortBy">Sort by:</label>
-                <select id="sortBy">
-                    <option value="relevance">Relevance Score (High to Low)</option>
-                    <option value="volume">Search Volume (High to Low)</option>
-                    <option value="relevance-asc">Relevance Score (Low to High)</option>
-                    <option value="volume-asc">Search Volume (Low to High)</option>
-                </select>
+
+        <!-- Loading State -->
+        <div class="card loading" id="loading">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="spinner"></span> Processing Your Research
+                </div>
+                <div class="card-description">
+                    Our AI agents are analyzing your keywords and competitors...
+                </div>
             </div>
-            
-            <div class="control-group">
-                <label for="filterBrand">Brand:</label>
-                <select id="filterBrand">
-                    <option value="all">All Keywords</option>
-                    <option value="non-branded">Non-Branded Only</option>
-                    <option value="branded">Branded Only</option>
-                </select>
+            <div class="card-content">
+                <div class="progress-container">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <span class="progress-message" id="progressMessage">Starting...</span>
+                        <span class="progress-percent" id="progressPercent">0%</span>
+                    </div>
+                    <div class="progress-bar-wrapper">
+                        <div class="progress-bar" id="progressBar"></div>
+                    </div>
+                </div>
             </div>
-            
-            <div class="control-group">
-                <label for="filterCategory">Category:</label>
-                <select id="filterCategory">
-                    <option value="all">All Categories</option>
-                    <option value="design_specific">Design-Specific</option>
-                    <option value="relevant">Relevant</option>
-                    <option value="outlier">Outlier</option>
-                    <option value="irrelevant">Irrelevant</option>
-                    <option value="branded">Branded</option>
-                </select>
-            </div>
-            
-            <div class="control-group">
-                <span id="resultCount">0 results</span>
-            </div>
-            
-            <button id="downloadCsvBtn" type="button" style="margin-left: auto;">Download CSV</button>
         </div>
-        
-        <div class="table-container">
-            <table id="resultsTable">
-                <thead id="tableHead"></thead>
-                <tbody id="tableBody"></tbody>
-            </table>
+
+        <!-- Error Message -->
+        <div class="error" id="error"></div>
+
+        <!-- Results Container -->
+        <div class="results" id="results">
+            <!-- Results Header Card -->
+            <div class="card" id="resultsHeader"></div>
+
+            <!-- Tabs -->
+            <div class="tabs" id="tabs">
+                <button class="tab-button active" data-tab="seo">SEO Optimization</button>
+                <button class="tab-button" data-tab="keywords">Keyword Analysis</button>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="tabContent"></div>
         </div>
     </div>
-    
-    <script src="/static/script.js"></script>
+
+    <script src="/static/script_modern.js"></script>
 </body>
 </html>

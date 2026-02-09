@@ -155,7 +155,7 @@ class ResearchPipeline:
             
             # Step 6: Scrape Amazon (40-50%)
             if progress_callback:
-                await progress_callback(40, "Scraping Amazon product...")
+                await progress_callback(40, f"Scraping product: {validated_asin}...")
             
             scrape_result = self.scraper_service.scrape_product(
                 normalized_url, marketplace, use_mock_scraper
@@ -169,7 +169,7 @@ class ResearchPipeline:
             scraped_data = scrape_result["data"]
             
             if progress_callback:
-                await progress_callback(50, "Product data retrieved")
+                await progress_callback(50, f"Product scraped: {len(product_bullets)} bullets found")
             
             # Step 7: Filter by top 10 roots
             keywords_to_evaluate = [
@@ -300,6 +300,9 @@ class ResearchPipeline:
             
             run_log.info(f"Pipeline complete: {len(final_results)} results")
             
+            # Log SEO optimization status
+            run_log.info(f"SEO Optimization - Enabled: {include_seo_optimization}, Has Title: {bool(product_title)}, Has Bullets: {bool(product_bullets)}")
+            
             # Optional: Run SEO optimization
             seo_optimization_result = None
             if include_seo_optimization and product_title and product_bullets:
@@ -323,12 +326,21 @@ class ResearchPipeline:
                     )
                     
                     run_log.info("SEO optimization complete")
+                    
+                    if progress_callback:
+                        await progress_callback(100, "SEO optimization complete!")
+                        
                 except Exception as e:
-                    run_log.error(f"SEO optimization failed: {str(e)}")
+                    run_log.error(f"SEO optimization failed: {str(e)}", exc_info=True)
                     seo_optimization_result = {
                         'success': False,
                         'error': str(e)
                     }
+            else:
+                if not include_seo_optimization:
+                    run_log.info("SEO optimization skipped (not enabled)")
+                else:
+                    run_log.warning("SEO optimization skipped (missing title or bullets)")
             
             return {
                 "success": True,

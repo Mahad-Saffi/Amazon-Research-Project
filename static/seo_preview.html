@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEO Optimization Preview - Modern UI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* Preview Header */
+        .preview-banner {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            color: white;
+            padding: 24px 32px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .preview-banner h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        
+        .preview-banner p {
+            opacity: 0.95;
+            font-size: 14px;
+        }
+        
+        /* Card Styles */
+        .card {
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+        }
+        
+        .card-header {
+            padding: 24px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        
+        .card-description {
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        .card-content {
+            padding: 24px;
+        }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid;
+        }
+        
+        .stat-card.blue {
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+        
+        .stat-card.green {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+        }
+        
+        .stat-card.purple {
+            background: #faf5ff;
+            border-color: #e9d5ff;
+        }
+        
+        .stat-card.orange {
+            background: #fff7ed;
+            border-color: #fed7aa;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .stat-card.blue .stat-value { color: #2563eb; }
+        .stat-card.green .stat-value { color: #16a34a; }
+        .stat-card.purple .stat-value { color: #9333ea; }
+        .stat-card.orange .stat-value { color: #ea580c; }
+        
+        .stat-label {
+            font-size: 13px;
+            color: #64748b;
+        }
+        
+        .stat-change {
+            font-size: 14px;
+            font-weight: 600;
+            color: #16a34a;
+            margin-top: 4px;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+        
+        .tab-button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            color: #64748b;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tab-button:hover {
+            background: #f8fafc;
+        }
+        
+        .tab-button.active {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+        
+        /* Badge */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid;
+        }
+        
+        .badge.success {
+            background: #f0fdf4;
+            color: #16a34a;
+            border-color: #bbf7d0;
+        }
+        
+        .badge.warning {
+            background: #fef3c7;
+            color: #d97706;
+            border-color: #fde68a;
+        }
+        
+        .badge.info {
+            background: #eff6ff;
+            color: #2563eb;
+            border-color: #bfdbfe;
+        }
+        
+        .badge.secondary {
+            background: #f1f5f9;
+            color: #475569;
+            border-color: #cbd5e1;
+        }
+        
+        /* Comparison Grid */
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 16px;
+        }
+        
+        @media (max-width: 768px) {
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .comparison-column {
+            border-radius: 8px;
+            border: 2px solid;
+            padding: 16px;
+        }
+        
+        .comparison-column.current {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+        }
+        
+        .comparison-column.optimized {
+            border-color: #86efac;
+            background: #f0fdf4;
+        }
+        
+        .comparison-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .comparison-label {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .comparison-label.current {
+            color: #64748b;
+        }
+        
+        .comparison-label.optimized {
+            color: #16a34a;
+        }
+        
+        .char-count {
+            font-size: 12px;
+            color: #64748b;
+        }
+        
+        .content-box {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .optimized .content-box {
+            border-color: #86efac;
+        }
+        
+        /* Metrics */
+        .metrics-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .metric {
+            flex: 1;
+            min-width: 120px;
+        }
+        
+        .metric-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        
+        .metric-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+        
+        .metric-improved .metric-value {
+            color: #16a34a;
+        }
+        
+        /* Keywords */
+        .keywords-section {
+            margin-top: 12px;
+        }
+        
+        .keywords-label {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #475569;
+        }
+        
+        .keyword-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        
+        .keyword-tag {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            border: 1px solid;
+        }
+        
+        .keyword-tag.current {
+            background: #f1f5f9;
+            color: #475569;
+            border-color: #cbd5e1;
+        }
+        
+        .keyword-tag.optimized {
+            background: #dcfce7;
+            color: #16a34a;
+            border-color: #86efac;
+        }
+        
+        /* Bullet Comparison */
+        .bullet-pair {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .bullet-pair:last-child {
+            border-bottom: none;
+        }
+        
+        .bullet-number {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2563eb;
+            margin-bottom: 12px;
+        }
+        
+        /* Icon */
+        .icon {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+        }
+        
+        /* Button */
+        .button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            color: #475569;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        
+        .button:hover {
+            background: #f8fafc;
+        }
+        
+        .button.primary {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+        
+        .button.primary:hover {
+            background: #1d4ed8;
+        }
+        
+        /* Improvements List */
+        .improvements-list {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .improvements-list h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 12px;
+        }
+        
+        .improvements-list ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .improvements-list li {
+            padding: 8px 0;
+            color: #1e40af;
+            font-size: 14px;
+        }
+        
+        .improvements-list li:before {
+            content: "✓ ";
+            color: #16a34a;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        /* Mobile Optimization Box */
+        .mobile-optimization {
+            background: #eff6ff;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .mobile-optimization-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 12px;
+        }
+        
+        .mobile-optimization-content {
+            background: white;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 16px;
+            font-size: 16px;
+            font-family: monospace;
+            color: #0f172a;
+            margin-bottom: 12px;
+        }
+        
+        .mobile-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="preview-banner">
+            <h1>🎨 SEO Optimization UI Preview</h1>
+            <p>Modern, professional interface matching your React/Next.js design system</p>
+        </div>
+
+        <div id="app"></div>
+    </div>
+
+    <script>
+        // Sample SEO optimization data (matching real structure)
+        const sampleSEOData = {
+            "success": true,
+            "current": {
+                "title": "Lemon Squeezer,Stainless Steel Manual Juicer Citrus, Fruit Juicer Lime Press Metal,Professional Hand Juicer Kitchen Tool Bar Juicer for Bartender Accessories",
+                "bullets": [
+                    "Efficient Juicing – This lightweight lemon and lime juicer extracts juice from citrus fruits like lemons, limes, and other small varieties quickly and effortlessly.",
+                    "Durable Stainless Steel Lemon Squeezer – Crafted from high-quality, stainless steel, this manual citrus juicer is built to withstand daily use and last for years.",
+                    "Ergonomic & Comfortable Grip – Citrus press designed for ease and comfort, the juicer features an ergonomic handle that ensures smooth pressing without slipping or causing hand fatigue.",
+                    "Easy to Use & Clean – Lemon press with its user-friendly and portable design, the juicer's smooth contours prevent hand strain. Simply open the clamp, cut the fruit in half and then crosswise, place it cut-side down in the bowl, and squeeze for fresh juice in seconds.",
+                    "Versatile & Multipurpose – The citrus press accommodates a variety of fruits such as lemons, oranges, limes, and other citrus, making it easy to extract pure, fresh juice for a high-quality, nutritious lifestyle."
+                ]
+            },
+            "optimized": {
+                "title": "Lemon Juicer Hand Press Stainless Steel Manual Citrus Juice Squeezer, Fruit Squeezer Handheld, Professional Lime Squeezer for Kitchen Bar Cocktails",
+                "bullets": [
+                    "Fast Citrus Extraction: Hand juicer design delivers fresh juice in seconds; efficient lime squeezer bowl helps reduce waste and keeps seeds out",
+                    "Stainless Steel Strength: Lemon squeezer stainless steel body resists rust and bending; durable juicer press built for daily kitchen and bar prep",
+                    "Comfortable Leverage: Juicer hand press with ergonomic handles improves control; smooth citrus squeezer action helps minimize hand strain and slipping",
+                    "Quick Cleanup Storage: Juice squeezer rinses clean under water; compact hand juicer fits in drawers or hangs easily to keep counters clutter free",
+                    "Kitchen To Cocktail Versatility: Juicer press for lemons and limes; lemon squeezer stainless steel works for marinades, dressings, baking, and drinks"
+                ]
+            },
+            "improvements": {
+                "search_volume": {
+                    "current": 16927,
+                    "optimized": 75988,
+                    "improvement": 59061,
+                    "improvement_percent": 348.9
+                },
+                "keyword_count": {
+                    "current": 12,
+                    "optimized": 18,
+                    "improvement": 6
+                },
+                "root_coverage": {
+                    "current": 16,
+                    "optimized": 18,
+                    "improvement": 2
+                },
+                "summary": [
+                    "Increased search volume by 59,061 (348.9%)",
+                    "Added 6 more keywords",
+                    "Covered 2 more keyword roots",
+                    "Maintained design-specific positioning"
+                ]
+            },
+            "detailed_comparison": {
+                "title": {
+                    "current": {
+                        "text": "Lemon Squeezer,Stainless Steel Manual Juicer Citrus, Fruit Juicer Lime Press Metal,Professional Hand Juicer Kitchen Tool Bar Juicer for Bartender Accessories",
+                        "characters": 157,
+                        "keywords": [
+                            "lemon squeezer (2,801)",
+                            "stainless steel (2,801)",
+                            "manual juicer (1,234)",
+                            "citrus (3,023)",
+                            "hand juicer (7,243)"
+                        ],
+                        "keyword_count": 5,
+                        "total_search_volume": 8273,
+                        "duplicates": []
+                    },
+                    "optimized": {
+                        "text": "Lemon Juicer Hand Press Stainless Steel Manual Citrus Juice Squeezer, Fruit Squeezer Handheld, Professional Lime Squeezer for Kitchen Bar Cocktails",
+                        "characters": 162,
+                        "keywords": [
+                            "lemon juicer (12,627)",
+                            "hand juicer press (3,502)",
+                            "juice press (10,235)",
+                            "fruit squeezer (2,661)",
+                            "juice squeezer handheld (1,456)",
+                            "lime squeezer (6,683)"
+                        ],
+                        "keyword_count": 6,
+                        "total_search_volume": 37164,
+                        "duplicates": []
+                    }
+                },
+                "bullets": {
+                    "current": [
+                        {
+                            "text": "Efficient Juicing – This lightweight lemon and lime juicer extracts juice from citrus fruits like lemons, limes, and other small varieties quickly and effortlessly.",
+                            "characters": 163,
+                            "keywords": ["lemon (12,627)", "lime juicer (1,234)"],
+                            "keyword_count": 2,
+                            "search_volume": 1854
+                        },
+                        {
+                            "text": "Durable Stainless Steel Lemon Squeezer – Crafted from high-quality, stainless steel, this manual citrus juicer is built to withstand daily use and last for years.",
+                            "characters": 162,
+                            "keywords": ["stainless steel (2,801)", "lemon squeezer (2,801)", "citrus juicer (3,023)"],
+                            "keyword_count": 3,
+                            "search_volume": 2800
+                        },
+                        {
+                            "text": "Ergonomic & Comfortable Grip – Citrus press designed for ease and comfort, the juicer features an ergonomic handle that ensures smooth pressing without slipping or causing hand fatigue.",
+                            "characters": 184,
+                            "keywords": ["citrus press (1,456)"],
+                            "keyword_count": 1,
+                            "search_volume": 1456
+                        },
+                        {
+                            "text": "Easy to Use & Clean – Lemon press with its user-friendly and portable design, the juicer's smooth contours prevent hand strain. Simply open the clamp, cut the fruit in half and then crosswise, place it cut-side down in the bowl, and squeeze for fresh juice in seconds.",
+                            "characters": 270,
+                            "keywords": ["lemon press (1,234)"],
+                            "keyword_count": 1,
+                            "search_volume": 1234
+                        },
+                        {
+                            "text": "Versatile & Multipurpose – The citrus press accommodates a variety of fruits such as lemons, oranges, limes, and other citrus, making it easy to extract pure, fresh juice for a high-quality, nutritious lifestyle.",
+                            "characters": 211,
+                            "keywords": ["citrus press (1,456)"],
+                            "keyword_count": 1,
+                            "search_volume": 1456
+                        }
+                    ],
+                    "optimized": [
+                        {
+                            "text": "Fast Citrus Extraction: Hand juicer design delivers fresh juice in seconds; efficient lime squeezer bowl helps reduce waste and keeps seeds out",
+                            "characters": 142,
+                            "keywords": ["hand juicer (7,243)", "lime squeezer (6,683)"],
+                            "keyword_count": 2,
+                            "search_volume": 13926
+                        },
+                        {
+                            "text": "Stainless Steel Strength: Lemon squeezer stainless steel body resists rust and bending; durable juicer press built for daily kitchen and bar prep",
+                            "characters": 147,
+                            "keywords": ["lemon squeezer stainless steel (2,801)", "juicer press (6,687)"],
+                            "keyword_count": 2,
+                            "search_volume": 9488
+                        },
+                        {
+                            "text": "Comfortable Leverage: Juicer hand press with ergonomic handles improves control; smooth citrus squeezer action helps minimize hand strain and slipping",
+                            "characters": 151,
+                            "keywords": ["juicer hand press (3,502)", "citrus squeezer (3,023)"],
+                            "keyword_count": 2,
+                            "search_volume": 6525
+                        },
+                        {
+                            "text": "Quick Cleanup Storage: Juice squeezer rinses clean under water; compact hand juicer fits in drawers or hangs easily to keep counters clutter free",
+                            "characters": 146,
+                            "keywords": ["juice squeezer (2,661)", "hand juicer (7,243)"],
+                            "keyword_count": 2,
+                            "search_volume": 9904
+                        },
+                        {
+                            "text": "Kitchen To Cocktail Versatility: Juicer press for lemons and limes; lemon squeezer stainless steel works for marinades, dressings, baking, and drinks",
+                            "characters": 151,
+                            "keywords": ["juicer press (6,687)", "lemon squeezer stainless steel (2,801)"],
+                            "keyword_count": 2,
+                            "search_volume": 9488
+                        }
+                    ]
+                }
+            }
+        };
+
+        // Use the same display function from script.js
+        function displaySEOOptimization(seoData) {
+            // Create SEO section if it doesn't exist
+            let seoSection = document.getElementById('seoOptimization');
+            if (!seoSection) {
+                seoSection = document.createElement('div');
+                seoSection.id = 'seoOptimization';
+                document.body.appendChild(seoSection);
+            }
+
+            const improvements = seoData.improvements;
+            const comparison = seoData.detailed_comparison;
+
+            seoSection.innerHTML = `
+                <div class="seo-section">
+                    <h2>📊 SEO Optimization Results</h2>
+                    
+                    <!-- Summary Cards -->
+                    <div class="seo-summary-cards">
+                        <div class="seo-card seo-card-primary">
+                            <div class="seo-card-icon">📈</div>
+                            <div class="seo-card-content">
+                                <div class="seo-card-label">Search Volume</div>
+                                <div class="seo-card-value">+${improvements.search_volume.improvement.toLocaleString()}</div>
+                                <div class="seo-card-detail">${improvements.search_volume.improvement_percent}% increase</div>
+                                <div class="seo-card-comparison">
+                                    ${improvements.search_volume.current.toLocaleString()} → ${improvements.search_volume.optimized.toLocaleString()}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="seo-card seo-card-success">
+                            <div class="seo-card-icon">🔑</div>
+                            <div class="seo-card-content">
+                                <div class="seo-card-label">Keywords</div>
+                                <div class="seo-card-value">+${improvements.keyword_count.improvement}</div>
+                                <div class="seo-card-detail">More keywords</div>
+                                <div class="seo-card-comparison">
+                                    ${improvements.keyword_count.current} → ${improvements.keyword_count.optimized}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="seo-card seo-card-info">
+                            <div class="seo-card-icon">🎯</div>
+                            <div class="seo-card-content">
+                                <div class="seo-card-label">Root Coverage</div>
+                                <div class="seo-card-value">+${improvements.root_coverage.improvement}</div>
+                                <div class="seo-card-detail">More roots</div>
+                                <div class="seo-card-comparison">
+                                    ${improvements.root_coverage.current} → ${improvements.root_coverage.optimized}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Improvements List -->
+                    <div class="seo-improvements">
+                        <h3>✨ Key Improvements</h3>
+                        <ul>
+                            ${improvements.summary.map(item => `<li>${item}</li>`).join('')}
+                        </ul>
+                    </div>
+
+                    <!-- Title Comparison -->
+                    <div class="seo-comparison-section">
+                        <h3>📝 Title Comparison</h3>
+                        <div class="seo-comparison-grid">
+                            <!-- Current Title -->
+                            <div class="seo-comparison-column seo-current">
+                                <div class="seo-comparison-header">
+                                    <span class="seo-badge seo-badge-current">Current</span>
+                                    <span class="seo-char-count">${comparison.title.current.characters}/200 chars</span>
+                                </div>
+                                <div class="seo-content-box">
+                                    <p class="seo-text">${comparison.title.current.text}</p>
+                                </div>
+                                <div class="seo-metrics">
+                                    <div class="seo-metric">
+                                        <span class="seo-metric-label">Keywords:</span>
+                                        <span class="seo-metric-value">${comparison.title.current.keyword_count}</span>
+                                    </div>
+                                    <div class="seo-metric">
+                                        <span class="seo-metric-label">Search Volume:</span>
+                                        <span class="seo-metric-value">${comparison.title.current.total_search_volume.toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div class="seo-keywords">
+                                    <strong>Keywords:</strong>
+                                    <div class="seo-keyword-tags">
+                                        ${comparison.title.current.keywords.map(kw => 
+                                            `<span class="seo-keyword-tag">${kw}</span>`
+                                        ).join('')}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Optimized Title -->
+                            <div class="seo-comparison-column seo-optimized">
+                                <div class="seo-comparison-header">
+                                    <span class="seo-badge seo-badge-optimized">Optimized</span>
+                                    <span class="seo-char-count">${comparison.title.optimized.characters}/200 chars</span>
+                                </div>
+                                <div class="seo-content-box seo-content-highlight">
+                                    <p class="seo-text">${comparison.title.optimized.text}</p>
+                                </div>
+                                <div class="seo-metrics">
+                                    <div class="seo-metric seo-metric-improved">
+                                        <span class="seo-metric-label">Keywords:</span>
+                                        <span class="seo-metric-value">${comparison.title.optimized.keyword_count}</span>
+                                        <span class="seo-metric-change">+${comparison.title.optimized.keyword_count - comparison.title.current.keyword_count}</span>
+                                    </div>
+                                    <div class="seo-metric seo-metric-improved">
+                                        <span class="seo-metric-label">Search Volume:</span>
+                                        <span class="seo-metric-value">${comparison.title.optimized.total_search_volume.toLocaleString()}</span>
+                                        <span class="seo-metric-change">+${(comparison.title.optimized.total_search_volume - comparison.title.current.total_search_volume).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <div class="seo-keywords">
+                                    <strong>Keywords:</strong>
+                                    <div class="seo-keyword-tags">
+                                        ${comparison.title.optimized.keywords.map(kw => 
+                                            `<span class="seo-keyword-tag seo-keyword-tag-optimized">${kw}</span>`
+                                        ).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bullet Points Comparison -->
+                    <div class="seo-comparison-section">
+                        <h3>📋 Bullet Points Comparison</h3>
+                        <div class="seo-bullets-comparison">
+                            ${comparison.bullets.current.map((currentBullet, index) => {
+                                const optimizedBullet = comparison.bullets.optimized[index];
+                                return `
+                                    <div class="seo-bullet-pair">
+                                        <div class="seo-bullet-number">Bullet ${index + 1}</div>
+                                        <div class="seo-comparison-grid">
+                                            <!-- Current Bullet -->
+                                            <div class="seo-comparison-column seo-current">
+                                                <div class="seo-content-box">
+                                                    <p class="seo-text">${currentBullet.text}</p>
+                                                </div>
+                                                <div class="seo-metrics">
+                                                    <div class="seo-metric">
+                                                        <span class="seo-metric-label">Characters:</span>
+                                                        <span class="seo-metric-value">${currentBullet.characters}</span>
+                                                    </div>
+                                                    <div class="seo-metric">
+                                                        <span class="seo-metric-label">Keywords:</span>
+                                                        <span class="seo-metric-value">${currentBullet.keyword_count}</span>
+                                                    </div>
+                                                    <div class="seo-metric">
+                                                        <span class="seo-metric-label">Search Volume:</span>
+                                                        <span class="seo-metric-value">${currentBullet.search_volume.toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                                <div class="seo-keywords-compact">
+                                                    ${currentBullet.keywords.map(kw => 
+                                                        `<span class="seo-keyword-tag-small">${kw}</span>`
+                                                    ).join('')}
+                                                </div>
+                                            </div>
+
+                                            <!-- Optimized Bullet -->
+                                            <div class="seo-comparison-column seo-optimized">
+                                                <div class="seo-content-box seo-content-highlight">
+                                                    <p class="seo-text">${optimizedBullet.text}</p>
+                                                </div>
+                                                <div class="seo-metrics">
+                                                    <div class="seo-metric">
+                                                        <span class="seo-metric-label">Characters:</span>
+                                                        <span class="seo-metric-value">${optimizedBullet.characters}</span>
+                                                    </div>
+                                                    <div class="seo-metric seo-metric-improved">
+                                                        <span class="seo-metric-label">Keywords:</span>
+                                                        <span class="seo-metric-value">${optimizedBullet.keyword_count}</span>
+                                                        ${optimizedBullet.keyword_count > currentBullet.keyword_count ? 
+                                                            `<span class="seo-metric-change">+${optimizedBullet.keyword_count - currentBullet.keyword_count}</span>` : ''}
+                                                    </div>
+                                                    <div class="seo-metric seo-metric-improved">
+                                                        <span class="seo-metric-label">Search Volume:</span>
+                                                        <span class="seo-metric-value">${optimizedBullet.search_volume.toLocaleString()}</span>
+                                                        ${optimizedBullet.search_volume > currentBullet.search_volume ? 
+                                                            `<span class="seo-metric-change">+${(optimizedBullet.search_volume - currentBullet.search_volume).toLocaleString()}</span>` : ''}
+                                                    </div>
+                                                </div>
+                                                <div class="seo-keywords-compact">
+                                                    ${optimizedBullet.keywords.map(kw => 
+                                                        `<span class="seo-keyword-tag-small seo-keyword-tag-optimized">${kw}</span>`
+                                                    ).join('')}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Display the sample data on page load
+        displaySEOOptimization(sampleSEOData);
+    </script>
+</body>
+</html>
+
+
+    <script>
+        // Sample data matching backend structure
+        const sampleData = {
+            improvements: {
+                search_volume: {
+                    current: 16927,
+                    optimized: 75988,
+                    improvement: 59061,
+                    improvement_percent: 348.9
+                },
+                keyword_count: {
+                    current: 12,
+                    optimized: 18,
+                    improvement: 6
+                },
+                root_coverage: {
+                    current: 16,
+                    optimized: 18,
+                    improvement: 2
+                }
+            },
+            detailed_comparison: {
+                title: {
+                    current: {
+                        text: "Lemon Squeezer,Stainless Steel Manual Juicer Citrus, Fruit Juicer Lime Press Metal,Professional Hand Juicer Kitchen Tool Bar Juicer for Bartender Accessories",
+                        characters: 157,
+                        keywords: ["lemon squeezer (2,801)", "stainless steel (2,801)", "manual juicer (1,234)", "citrus (3,023)", "hand juicer (7,243)"],
+                        keyword_count: 5,
+                        total_search_volume: 8273
+                    },
+                    optimized: {
+                        text: "Lemon Juicer Hand Press Stainless Steel Manual Citrus Juice Squeezer, Fruit Squeezer Handheld, Professional Lime Squeezer for Kitchen Bar Cocktails",
+                        characters: 162,
+                        keywords: ["lemon juicer (12,627)", "hand juicer press (3,502)", "juice press (10,235)", "fruit squeezer (2,661)", "juice squeezer handheld (1,456)", "lime squeezer (6,683)"],
+                        keyword_count: 6,
+                        total_search_volume: 37164
+                    }
+                },
+                bullets: {
+                    current: [
+                        {
+                            text: "Efficient Juicing – This lightweight lemon and lime juicer extracts juice from citrus fruits like lemons, limes, and other small varieties quickly and effortlessly.",
+                            characters: 163,
+                            keywords: ["lemon (12,627)", "lime juicer (1,234)"],
+                            keyword_count: 2,
+                            search_volume: 1854
+                        },
+                        {
+                            text: "Durable Stainless Steel Lemon Squeezer – Crafted from high-quality, stainless steel, this manual citrus juicer is built to withstand daily use and last for years.",
+                            characters: 162,
+                            keywords: ["stainless steel (2,801)", "lemon squeezer (2,801)", "citrus juicer (3,023)"],
+                            keyword_count: 3,
+                            search_volume: 2800
+                        }
+                    ],
+                    optimized: [
+                        {
+                            text: "Fast Citrus Extraction: Hand juicer design delivers fresh juice in seconds; efficient lime squeezer bowl helps reduce waste and keeps seeds out",
+                            characters: 142,
+                            keywords: ["hand juicer (7,243)", "lime squeezer (6,683)"],
+                            keyword_count: 2,
+                            search_volume: 13926
+                        },
+                        {
+                            text: "Stainless Steel Strength: Lemon squeezer stainless steel body resists rust and bending; durable juicer press built for daily kitchen and bar prep",
+                            characters: 147,
+                            keywords: ["lemon squeezer stainless steel (2,801)", "juicer press (6,687)"],
+                            keyword_count: 2,
+                            search_volume: 9488
+                        }
+                    ]
+                }
+            }
+        };
+
+        let activeTab = 'seo';
+
+        function renderApp() {
+            const app = document.getElementById('app');
+            
+            app.innerHTML = `
+                <!-- Results Header Card -->
+                <div class="card">
+                    <div class="card-header">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div class="card-title">
+                                    <span>📊</span> Analysis Complete
+                                </div>
+                                <div class="card-description">
+                                    Comprehensive keyword research and SEO optimization recommendations
+                                </div>
+                            </div>
+                            <button class="button primary">
+                                <span>⬇</span> Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="stats-grid">
+                            <div class="stat-card blue">
+                                <div class="stat-value">${sampleData.improvements.search_volume.optimized.toLocaleString()}</div>
+                                <div class="stat-label">Optimized Search Volume</div>
+                                <div class="stat-change">+${sampleData.improvements.search_volume.improvement_percent}%</div>
+                            </div>
+                            <div class="stat-card green">
+                                <div class="stat-value">${sampleData.improvements.keyword_count.optimized}</div>
+                                <div class="stat-label">Total Keywords</div>
+                                <div class="stat-change">+${sampleData.improvements.keyword_count.improvement} keywords</div>
+                            </div>
+                            <div class="stat-card purple">
+                                <div class="stat-value">${sampleData.improvements.root_coverage.optimized}</div>
+                                <div class="stat-label">Root Coverage</div>
+                                <div class="stat-change">+${sampleData.improvements.root_coverage.improvement} roots</div>
+                            </div>
+                            <div class="stat-card orange">
+                                <div class="stat-value">${sampleData.improvements.search_volume.improvement_percent}%</div>
+                                <div class="stat-label">Improvement</div>
+                                <div class="stat-change">vs. current listing</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="tabs">
+                    <button class="tab-button ${activeTab === 'seo' ? 'active' : ''}" onclick="switchTab('seo')">
+                        SEO Optimization
+                    </button>
+                    <button class="tab-button ${activeTab === 'keywords' ? 'active' : ''}" onclick="switchTab('keywords')">
+                        Keyword Analysis
+                    </button>
+                    <button class="tab-button ${activeTab === 'roots' ? 'active' : ''}" onclick="switchTab('roots')">
+                        Root Analysis
+                    </button>
+                </div>
+
+                <!-- SEO Tab Content -->
+                ${activeTab === 'seo' ? renderSEOTab() : ''}
+                ${activeTab === 'keywords' ? '<div class="card"><div class="card-content" style="text-align: center; padding: 60px; color: #64748b;">Keyword Analysis tab (not shown in preview)</div></div>' : ''}
+                ${activeTab === 'roots' ? '<div class="card"><div class="card-content" style="text-align: center; padding: 60px; color: #64748b;">Root Analysis tab (not shown in preview)</div></div>' : ''}
+            `;
+        }
+
+        function renderSEOTab() {
+            const { title, bullets } = sampleData.detailed_comparison;
+            
+            return `
+                <!-- Mobile Optimization (First 80 chars) -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>🎯</span> Mobile Optimization (First 80 Characters)
+                        </div>
+                        <div class="card-description">
+                            Critical for mobile search visibility
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="mobile-optimization">
+                            <div class="mobile-optimization-title">Optimized Title (First 80 chars):</div>
+                            <div class="mobile-optimization-content">
+                                ${title.optimized.text.substring(0, 80)}...
+                            </div>
+                            <div class="mobile-badges">
+                                <span class="badge success">Main Root: ✓</span>
+                                <span class="badge success">Design Root: ✓</span>
+                                <span class="badge secondary">Length: ${title.optimized.characters} chars</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key Improvements -->
+                <div class="improvements-list">
+                    <h3>✨ Key Improvements</h3>
+                    <ul>
+                        <li>Increased search volume by ${sampleData.improvements.search_volume.improvement.toLocaleString()} (${sampleData.improvements.search_volume.improvement_percent}%)</li>
+                        <li>Added ${sampleData.improvements.keyword_count.improvement} more keywords</li>
+                        <li>Covered ${sampleData.improvements.root_coverage.improvement} more keyword roots</li>
+                        <li>Maintained design-specific positioning</li>
+                    </ul>
+                </div>
+
+                <!-- Title Comparison -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>📝</span> Title Comparison
+                        </div>
+                        <div class="card-description">
+                            Side-by-side comparison of current vs. optimized title
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="comparison-grid">
+                            <!-- Current Title -->
+                            <div class="comparison-column current">
+                                <div class="comparison-header">
+                                    <span class="comparison-label current">CURRENT</span>
+                                    <span class="char-count">${title.current.characters}/200 chars</span>
+                                </div>
+                                <div class="content-box">
+                                    ${title.current.text}
+                                </div>
+                                <div class="metrics-row">
+                                    <div class="metric">
+                                        <div class="metric-label">Keywords</div>
+                                        <div class="metric-value">${title.current.keyword_count}</div>
+                                    </div>
+                                    <div class="metric">
+                                        <div class="metric-label">Search Volume</div>
+                                        <div class="metric-value">${title.current.total_search_volume.toLocaleString()}</div>
+                                    </div>
+                                </div>
+                                <div class="keywords-section">
+                                    <div class="keywords-label">Keywords:</div>
+                                    <div class="keyword-tags">
+                                        ${title.current.keywords.map(kw => 
+                                            `<span class="keyword-tag current">${kw}</span>`
+                                        ).join('')}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Optimized Title -->
+                            <div class="comparison-column optimized">
+                                <div class="comparison-header">
+                                    <span class="comparison-label optimized">OPTIMIZED</span>
+                                    <span class="char-count">${title.optimized.characters}/200 chars</span>
+                                </div>
+                                <div class="content-box">
+                                    ${title.optimized.text}
+                                </div>
+                                <div class="metrics-row">
+                                    <div class="metric metric-improved">
+                                        <div class="metric-label">Keywords</div>
+                                        <div class="metric-value">${title.optimized.keyword_count} <span style="font-size: 12px; color: #16a34a;">+${title.optimized.keyword_count - title.current.keyword_count}</span></div>
+                                    </div>
+                                    <div class="metric metric-improved">
+                                        <div class="metric-label">Search Volume</div>
+                                        <div class="metric-value">${title.optimized.total_search_volume.toLocaleString()} <span style="font-size: 12px; color: #16a34a;">+${(title.optimized.total_search_volume - title.current.total_search_volume).toLocaleString()}</span></div>
+                                    </div>
+                                </div>
+                                <div class="keywords-section">
+                                    <div class="keywords-label">Keywords:</div>
+                                    <div class="keyword-tags">
+                                        ${title.optimized.keywords.map(kw => 
+                                            `<span class="keyword-tag optimized">${kw}</span>`
+                                        ).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bullet Points Comparison -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>📋</span> Bullet Points Comparison
+                        </div>
+                        <div class="card-description">
+                            Benefit-focused bullets with keyword integration
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        ${bullets.current.map((currentBullet, index) => {
+                            const optimizedBullet = bullets.optimized[index];
+                            return `
+                                <div class="bullet-pair">
+                                    <div class="bullet-number">Bullet Point ${index + 1}</div>
+                                    <div class="comparison-grid">
+                                        <!-- Current Bullet -->
+                                        <div class="comparison-column current">
+                                            <div class="content-box">
+                                                ${currentBullet.text}
+                                            </div>
+                                            <div class="metrics-row">
+                                                <div class="metric">
+                                                    <div class="metric-label">Characters</div>
+                                                    <div class="metric-value">${currentBullet.characters}</div>
+                                                </div>
+                                                <div class="metric">
+                                                    <div class="metric-label">Keywords</div>
+                                                    <div class="metric-value">${currentBullet.keyword_count}</div>
+                                                </div>
+                                                <div class="metric">
+                                                    <div class="metric-label">Search Volume</div>
+                                                    <div class="metric-value">${currentBullet.search_volume.toLocaleString()}</div>
+                                                </div>
+                                            </div>
+                                            <div class="keyword-tags" style="margin-top: 8px;">
+                                                ${currentBullet.keywords.map(kw => 
+                                                    `<span class="keyword-tag current">${kw}</span>`
+                                                ).join('')}
+                                            </div>
+                                        </div>
+
+                                        <!-- Optimized Bullet -->
+                                        <div class="comparison-column optimized">
+                                            <div class="content-box">
+                                                ${optimizedBullet.text}
+                                            </div>
+                                            <div class="metrics-row">
+                                                <div class="metric">
+                                                    <div class="metric-label">Characters</div>
+                                                    <div class="metric-value">${optimizedBullet.characters}</div>
+                                                </div>
+                                                <div class="metric metric-improved">
+                                                    <div class="metric-label">Keywords</div>
+                                                    <div class="metric-value">${optimizedBullet.keyword_count}</div>
+                                                </div>
+                                                <div class="metric metric-improved">
+                                                    <div class="metric-label">Search Volume</div>
+                                                    <div class="metric-value">${optimizedBullet.search_volume.toLocaleString()} <span style="font-size: 12px; color: #16a34a;">+${(optimizedBullet.search_volume - currentBullet.search_volume).toLocaleString()}</span></div>
+                                                </div>
+                                            </div>
+                                            <div class="keyword-tags" style="margin-top: 8px;">
+                                                ${optimizedBullet.keywords.map(kw => 
+                                                    `<span class="keyword-tag optimized">${kw}</span>`
+                                                ).join('')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                <!-- Amazon Compliance -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>⚡</span> Amazon Compliance Status
+                        </div>
+                        <div class="card-description">
+                            All guidelines validated
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div class="stats-grid">
+                            <div class="stat-card green" style="padding: 16px;">
+                                <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Character Limit</div>
+                                <span class="badge success">PASS</span>
+                            </div>
+                            <div class="stat-card green" style="padding: 16px;">
+                                <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Capitalization</div>
+                                <span class="badge success">PASS</span>
+                            </div>
+                            <div class="stat-card green" style="padding: 16px;">
+                                <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Special Characters</div>
+                                <span class="badge success">PASS</span>
+                            </div>
+                            <div class="stat-card green" style="padding: 16px;">
+                                <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Promotional Language</div>
+                                <span class="badge success">PASS</span>
+                            </div>
+                            <div class="stat-card green" style="padding: 16px;">
+                                <div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">Subjective Claims</div>
+                                <span class="badge success">PASS</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            renderApp();
+        }
+
+        // Initial render
+        renderApp();
+    </script>
+</body>
+</html>

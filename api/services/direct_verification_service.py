@@ -65,7 +65,8 @@ class DirectVerificationService:
         # Step 1: Scrape all irrelevant keywords in parallel
         scraped_titles = await self._scrape_all_keywords(
             irrelevant_keywords,
-            max_concurrent_scrape
+            max_concurrent_scrape,
+            progress_callback
         )
         
         # Step 2: Verify with AI
@@ -83,7 +84,8 @@ class DirectVerificationService:
     async def _scrape_all_keywords(
         self,
         keywords: List[Dict[str, Any]],
-        max_workers: int
+        max_workers: int,
+        progress_callback=None
     ) -> Dict[str, List[str]]:
         """
         Scrape competitor titles for all irrelevant keywords in parallel
@@ -92,13 +94,16 @@ class DirectVerificationService:
         Args:
             keywords: List of keyword dicts
             max_workers: Max concurrent scraping threads
+            progress_callback: Optional callback for progress updates
         
         Returns:
             Dict mapping keyword to list of organic competitor titles (6-8 titles)
         """
-        logger.info(f"Scraping {len(keywords)} irrelevant keywords (parallel)")
+        total_keywords = len(keywords)
+        logger.info(f"Scraping {total_keywords} irrelevant keywords (parallel)")
         
         scraped_titles = {}
+        completed_count = 0
         
         def scrape_keyword(keyword: str):
             """Scrape titles for a single keyword"""
@@ -126,8 +131,18 @@ class DirectVerificationService:
             for future in as_completed(futures):
                 keyword, titles = future.result()
                 scraped_titles[keyword] = titles
+                completed_count += 1
+                
                 if titles:
-                    logger.info(f"Scraped {len(titles)} titles for '{keyword}'")
+                    logger.info(f"Scraped {len(titles)} titles for '{keyword}' ({completed_count}/{total_keywords})")
+                
+                # Update progress
+                if progress_callback:
+                    progress_pct = 95 + int((completed_count / total_keywords) * 3)  # 95-98%
+                    await progress_callback(
+                        progress_pct, 
+                        f"Scraping competitors: {completed_count}/{total_keywords} keywords"
+                    )
         
         logger.info(f"Scraping complete: {len(scraped_titles)} keywords with titles")
         return scraped_titles

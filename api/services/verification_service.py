@@ -34,7 +34,10 @@ class VerificationService:
         logger.info(f"Verifying {len(competitor_keywords)} competitor_relevant keywords")
         
         # Step 1: Scrape titles in parallel
-        scraped_titles = await self._scrape_titles_parallel(competitor_keywords)
+        scraped_titles = await self._scrape_titles_parallel(
+            competitor_keywords,
+            progress_callback
+        )
         
         # Step 2: Verify with AI
         verification_results = await self._verify_with_ai(
@@ -50,7 +53,8 @@ class VerificationService:
     
     async def _scrape_titles_parallel(
         self, 
-        keywords: List[Dict[str, Any]]
+        keywords: List[Dict[str, Any]],
+        progress_callback=None
     ) -> Dict[str, List[str]]:
         """
         Scrape competitor titles for keywords in parallel
@@ -58,7 +62,9 @@ class VerificationService:
         """
         from Experimental.amazon_keyword_scraper import AmazonKeywordScraper
         
+        total_keywords = len(keywords)
         scraped_titles = {}
+        completed_count = 0
         
         def scrape_keyword(keyword: str):
             try:
@@ -81,8 +87,18 @@ class VerificationService:
             for future in as_completed(futures):
                 keyword, titles = future.result()
                 scraped_titles[keyword] = titles
+                completed_count += 1
+                
                 if titles:
-                    logger.info(f"Scraped {len(titles)} titles for '{keyword}'")
+                    logger.info(f"Scraped {len(titles)} titles for '{keyword}' ({completed_count}/{total_keywords})")
+                
+                # Update progress
+                if progress_callback:
+                    progress_pct = 98 + int((completed_count / total_keywords) * 1)  # 98-99%
+                    await progress_callback(
+                        progress_pct,
+                        f"Scraping competitors: {completed_count}/{total_keywords} keywords"
+                    )
         
         logger.info(f"Scraping complete: {len(scraped_titles)} keywords")
         return scraped_titles
