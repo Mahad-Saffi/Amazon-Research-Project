@@ -16,6 +16,7 @@ from api.services.validation_service import ValidationService
 from api.services.verification_service import VerificationService
 from api.services.enhanced_categorization_service import EnhancedCategorizationService
 from api.services.direct_verification_service import DirectVerificationService
+from api.services.asin_validator import ASINValidator
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ class ResearchPipeline:
         self.verification_service = VerificationService()
         self.enhanced_categorization_service = EnhancedCategorizationService()
         self.direct_verification_service = DirectVerificationService()
+        self.asin_validator = ASINValidator()
         self.run_logger: Optional[RunLogger] = None
     
     async def run_complete_pipeline(
@@ -75,6 +77,30 @@ class ResearchPipeline:
         
         try:
             run_log.info(f"Pipeline started: {asin_or_url}")
+            
+            # Step 0: Validate ASIN/URL (0-5%)
+            if progress_callback:
+                await progress_callback(0, "Validating ASIN/URL...")
+            
+            is_valid, validated_asin, error_message = self.asin_validator.validate(asin_or_url)
+            
+            if not is_valid:
+                run_log.error(f"Invalid ASIN/URL: {error_message}")
+                return {
+                    "success": False,
+                    "error": f"Invalid ASIN/URL: {error_message}",
+                    "validation_error": True,
+                    "log_file": self.run_logger.get_log_file_path() if self.run_logger else None
+                }
+            
+            run_log.info(f"Valid ASIN: {validated_asin}")
+            
+            # Normalize to URL for scraping
+            normalized_url = self.asin_validator.normalize_to_url(validated_asin, marketplace)
+            run_log.info(f"Normalized URL: {normalized_url}")
+            
+            if progress_callback:
+                await progress_callback(5, f"Validated ASIN: {validated_asin}")
             
             # Step 1-4: CSV Processing (10-25%)
             if progress_callback:
@@ -132,7 +158,7 @@ class ResearchPipeline:
                 await progress_callback(40, "Scraping Amazon product...")
             
             scrape_result = self.scraper_service.scrape_product(
-                asin_or_url, marketplace, use_mock_scraper
+                normalized_url, marketplace, use_mock_scraper
             )
             
             if not scrape_result.get("success"):
@@ -156,7 +182,7 @@ class ResearchPipeline:
             if not keywords_to_evaluate:
                 run_log.warning(f"No keywords matched top 10 roots. Filtered rows: {len(filtered_rows)}, Top roots: {top_10_roots}")
                 return self._success_response([], product_title, product_bullets, scraped_data, 
-                                             asin_or_url, marketplace, top_10_roots)
+                                             validated_asin, marketplace, top_10_roots)
             
             # Step 8-9: Categorize keywords (70-95%)
             if progress_callback:
@@ -267,7 +293,7 @@ class ResearchPipeline:
             )
             
             # Save results
-            csv_filename = self._save_results(final_results, asin_or_url)
+            csv_filename = self._save_results(final_results, validated_asin)
             
             if progress_callback:
                 await progress_callback(100, "Complete!")
@@ -291,7 +317,7 @@ class ResearchPipeline:
                         current_bullets=product_bullets,
                         keyword_evaluations=final_results,
                         product_info={
-                            'asin': asin_or_url,
+                            'asin': validated_asin,
                             'marketplace': marketplace
                         }
                     )
@@ -313,7 +339,7 @@ class ResearchPipeline:
                 "log_file": self.run_logger.get_log_file_path() if self.run_logger else None,
                 "seo_optimization": seo_optimization_result,  # New field
                 "metadata": self._create_metadata(
-                    asin_or_url, marketplace, top_10_roots,
+                    validated_asin, marketplace, top_10_roots,
                     len(design_rows), len(revenue_rows),
                     len(branded_kws), len(non_branded_kws),
                     len(categorizations), len(final_results)
