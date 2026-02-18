@@ -26,6 +26,7 @@ async def analyze_product_json(
     marketplace: str = Form(default="US", description="Marketplace code (US, UK, CA, etc.)"),
     use_mock_scraper: bool = Form(default=False, description="Use mock data for testing"),
     use_direct_verification: bool = Form(default=False, description="Use direct verification method (scrape all irrelevant keywords)"),
+    rank_threshold: int = Form(default=11, description="Rank threshold for relevancy scoring (B0 column values below this count as relevant)"),
     request_id: str = Form(default="", description="Request ID for progress tracking")
 ):
     """
@@ -65,6 +66,7 @@ async def analyze_product_json(
             marketplace=marketplace,
             use_mock_scraper=use_mock_scraper,
             use_direct_verification=use_direct_verification,
+            rank_threshold=rank_threshold,
             progress_callback=update_progress,
             request_id=request_id if request_id else None
         )
@@ -160,6 +162,7 @@ async def websocket_research(websocket: WebSocket):
         use_mock_scraper = data.get("use_mock_scraper", False)
         use_direct_verification = data.get("use_direct_verification", False)
         include_seo_optimization = data.get("include_seo_optimization", True)  # New parameter
+        rank_threshold = int(data.get("rank_threshold", 11))
         request_id = data.get("request_id", "")
         
         # Decode base64 file data
@@ -193,6 +196,7 @@ async def websocket_research(websocket: WebSocket):
             use_mock_scraper=use_mock_scraper,
             use_direct_verification=use_direct_verification,
             include_seo_optimization=include_seo_optimization,  # Pass parameter
+            rank_threshold=rank_threshold,
             progress_callback=ws_progress_callback,
             request_id=request_id if request_id else None
         )

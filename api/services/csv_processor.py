@@ -83,19 +83,19 @@ class CSVProcessor:
         return filtered
     
     @staticmethod
-    def add_relevancy(rows: List[Dict]) -> List[Dict]:
-        """Add relevancy column based on B0 columns with values < 11"""
-        logger.info(f"Adding relevancy to {len(rows)} rows")
+    def add_relevancy(rows: List[Dict], rank_threshold: int = 11) -> List[Dict]:
+        """Add relevancy column based on B0 columns with values < rank_threshold"""
+        logger.info(f"Adding relevancy to {len(rows)} rows (rank_threshold={rank_threshold})")
         
         rows_with_relevancy = []
         for row in rows:
-            # Count B0 columns with values < 11
+            # Count B0 columns with values < rank_threshold
             relevancy = 0
             for col, value in row.items():
                 if col.startswith('B0') and value and str(value).strip():
                     try:
                         val = float(value)
-                        if val < 11:
+                        if val < rank_threshold:
                             relevancy += 1
                     except ValueError:
                         pass

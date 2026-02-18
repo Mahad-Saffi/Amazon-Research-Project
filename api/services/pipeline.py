@@ -63,6 +63,7 @@ class ResearchPipeline:
         use_mock_scraper: bool = False,
         use_direct_verification: bool = False,
         include_seo_optimization: bool = True,  # New parameter
+        rank_threshold: int = 11,
         progress_callback=None,
         request_id: str = None
     ) -> Dict[str, Any]:
@@ -108,7 +109,8 @@ class ResearchPipeline:
             
             design_rows, revenue_rows = self._process_csvs(
                 design_csv_content, 
-                revenue_csv_content
+                revenue_csv_content,
+                rank_threshold=rank_threshold
             )
             
             if not design_rows and not revenue_rows:
@@ -369,7 +371,7 @@ class ResearchPipeline:
             if self.run_logger:
                 self.run_logger.cleanup()
     
-    def _process_csvs(self, design_content: bytes, revenue_content: bytes):
+    def _process_csvs(self, design_content: bytes, revenue_content: bytes, rank_threshold: int = 11):
         """Process CSV files through dedup, filter, relevancy"""
         design_rows = self.csv_processor.parse_csv_content(design_content)
         revenue_rows = self.csv_processor.parse_csv_content(revenue_content)
@@ -379,8 +381,8 @@ class ResearchPipeline:
         design_filtered = self.csv_processor.filter_columns(design_dedup) if design_dedup else []
         revenue_filtered = self.csv_processor.filter_columns(revenue_rows) if revenue_rows else []
         
-        design_relevancy = self.csv_processor.add_relevancy(design_filtered) if design_filtered else []
-        revenue_relevancy = self.csv_processor.add_relevancy(revenue_filtered) if revenue_filtered else []
+        design_relevancy = self.csv_processor.add_relevancy(design_filtered, rank_threshold) if design_filtered else []
+        revenue_relevancy = self.csv_processor.add_relevancy(revenue_filtered, rank_threshold) if revenue_filtered else []
         
         return design_relevancy, revenue_relevancy
     

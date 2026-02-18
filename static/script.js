@@ -49,6 +49,7 @@ document.getElementById('researchForm').addEventListener('submit', async functio
                 use_mock_scraper: document.getElementById('useMock').checked,
                 use_direct_verification: document.getElementById('useDirectVerification').checked,
                 include_seo_optimization: document.getElementById('includeSeoOptimization').checked,
+                rank_threshold: parseInt(document.getElementById('rankThreshold').value) || 11,
                 request_id: requestId
             }));
         };

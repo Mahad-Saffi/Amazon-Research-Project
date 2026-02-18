@@ -31,8 +31,9 @@ async function handleSubmit(e) {
     const useMock = document.getElementById('useMock').checked;
     const useDirectVerification = document.getElementById('useDirectVerification').checked;
     const includeSeoOptimization = document.getElementById('includeSeoOptimization').checked;
+    const rankThreshold = parseInt(document.getElementById('rankThreshold').value) || 11;
     
-    console.log('Form data:', { asinUrl, marketplace, useMock, useDirectVerification, includeSeoOptimization });
+    console.log('Form data:', { asinUrl, marketplace, useMock, useDirectVerification, includeSeoOptimization, rankThreshold });
     
     if (!designFile || !revenueFile || !asinUrl) {
         showError('Please fill in all required fields');
@@ -64,6 +65,7 @@ async function handleSubmit(e) {
             use_mock_scraper: useMock,
             use_direct_verification: useDirectVerification,
             include_seo_optimization: includeSeoOptimization,
+            rank_threshold: rankThreshold,
             request_id: requestId
         });
     } catch (error) {

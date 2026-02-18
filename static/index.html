@@ -66,6 +66,14 @@
                     </div>
                     
                     <div class="form-group">
+                        <label for="rankThreshold">Rank Threshold</label>
+                        <input type="number" id="rankThreshold" value="11" min="1" max="100" style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;">
+                        <div style="font-size: 13px; color: #64748b; margin-top: 4px;">
+                            B0 column values below this threshold count as relevant (default: 11)
+                        </div>
+                    </div>
+
+                    <div class="form-group">
                         <label>
                             <input type="checkbox" id="useDirectVerification">
                             Use Direct Verification
