@@ -26,7 +26,7 @@ class AmazonKeywordScraper:
         "en-US,en;q=0.9,es;q=0.8",
     ]
 
-    def __init__(self, max_retries=3):
+    def __init__(self, max_retries=5):
         self.max_retries = max_retries
         self.session = self._create_session()
 

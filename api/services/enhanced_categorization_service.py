@@ -5,6 +5,7 @@ using Python logic + competitor title scraping
 """
 import logging
 from typing import List, Dict, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from research_agents.enhanced_irrelevant_logic import categorize_irrelevant_keywords
 from Experimental.amazon_keyword_scraper import AmazonKeywordScraper
@@ -116,7 +117,7 @@ class EnhancedCategorizationService:
     
     def _scrape_competitor_titles(self, relevant_keywords: List[str]) -> List[str]:
         """
-        Scrape competitor titles for top 3 relevant keywords
+        Scrape competitor titles for top 3 relevant keywords in parallel
         Returns only organic (non-sponsored) titles
         
         Args:
@@ -126,23 +127,35 @@ class EnhancedCategorizationService:
             List of organic competitor product titles (~144 titles: 3 keywords × ~48 organic titles each)
         """
         all_titles = []
-        scraper = AmazonKeywordScraper()
         
-        try:
-            scraper.warm_up()
-            
-            for keyword in relevant_keywords:
+        def scrape_keyword(keyword: str) -> List[str]:
+            """Scrape a single keyword in its own thread with its own scraper instance"""
+            scraper = AmazonKeywordScraper(max_retries=5)
+            try:
+                scraper.warm_up()
+                logger.info(f"Scraping competitor titles for: {keyword}")
+                html = scraper.scrape_search_html(keyword, page=1)
+                titles = scraper.extract_product_titles(html)
+                logger.info(f"Scraped {len(titles)} titles for '{keyword}'")
+                return titles
+            except Exception as e:
+                logger.warning(f"Could not scrape '{keyword}': {str(e)}")
+                return []
+            finally:
+                scraper.close()
+        
+        with ThreadPoolExecutor(max_workers=len(relevant_keywords)) as executor:
+            futures = {
+                executor.submit(scrape_keyword, kw): kw 
+                for kw in relevant_keywords
+            }
+            for future in as_completed(futures):
+                keyword = futures[future]
                 try:
-                    logger.info(f"Scraping competitor titles for: {keyword}")
-                    html = scraper.scrape_search_html(keyword, page=1)
-                    titles = scraper.extract_product_titles(html)
+                    titles = future.result()
                     all_titles.extend(titles)
-                    logger.info(f"Scraped {len(titles)} titles for '{keyword}'")
                 except Exception as e:
-                    logger.warning(f"Could not scrape '{keyword}': {str(e)}")
-                    continue
-        finally:
-            scraper.close()
+                    logger.warning(f"Thread error for '{keyword}': {str(e)}")
         
         return all_titles
     
