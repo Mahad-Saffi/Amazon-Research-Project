@@ -5,6 +5,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 from datetime import datetime
+from collections import defaultdict
 import csv
 
 from api.services.csv_processor import CSVProcessor
@@ -294,6 +295,9 @@ class ResearchPipeline:
                 non_branded_kws
             )
             
+            # Post-processing: resolve duplicate keywords across categories
+            final_results = self._resolve_duplicate_keywords(final_results)
+            
             # Save results
             csv_filename = self._save_results(final_results, validated_asin)
             
@@ -496,6 +500,90 @@ class ResearchPipeline:
                    reverse=True)
         
         return merged
+    
+    def _resolve_duplicate_keywords(self, results: List[Dict]) -> List[Dict]:
+        """
+        Post-processing to resolve keywords that appear with multiple categories.
+        
+        Rules:
+        1. If a keyword appears as 'branded' anywhere, ALL occurrences become 'branded'
+        2. If a keyword appears with different non-branded categories (e.g. relevant + irrelevant),
+           ALL occurrences become 'irrelevant'
+        3. After resolving, deduplicate so each keyword appears only once
+           (keep the entry with highest Search Volume)
+        """
+        if not results:
+            return results
+        
+        # Group entries by keyword (case-insensitive)
+        keyword_groups = defaultdict(list)
+        for entry in results:
+            key = entry.get('keyword', '').strip().lower()
+            if key:
+                keyword_groups[key].append(entry)
+        
+        # Identify branded keywords and keywords with conflicting categories
+        branded_keywords = set()
+        conflicting_keywords = set()
+        
+        for key, entries in keyword_groups.items():
+            categories = set(e.get('category', '') for e in entries)
+            
+            # Rule 1: If any entry is branded, mark keyword as branded
+            if 'branded' in categories:
+                branded_keywords.add(key)
+            
+            # Rule 2: If multiple different categories exist (and not all branded),
+            # it's a conflict → mark as irrelevant
+            non_branded_categories = categories - {'branded'}
+            if len(non_branded_categories) > 1:
+                conflicting_keywords.add(key)
+        
+        # Apply resolutions
+        changes_branded = 0
+        changes_irrelevant = 0
+        
+        for entry in results:
+            key = entry.get('keyword', '').strip().lower()
+            
+            # Branded takes highest priority
+            if key in branded_keywords:
+                if entry.get('category') != 'branded':
+                    changes_branded += 1
+                    entry['category'] = 'branded'
+                    entry['relevance_score'] = self._map_category_to_score('branded')
+                    entry['reasoning'] = 'Branded keyword - same word identified as brand elsewhere'
+                    entry['brand_status'] = 'Branded'
+            # Conflicting categories → irrelevant (only if not branded)
+            elif key in conflicting_keywords:
+                if entry.get('category') != 'irrelevant':
+                    changes_irrelevant += 1
+                    original_cat = entry.get('category', '')
+                    entry['category'] = 'irrelevant'
+                    entry['relevance_score'] = self._map_category_to_score('irrelevant')
+                    entry['reasoning'] = (f"Conflict resolution: keyword appeared with multiple categories "
+                                         f"(was '{original_cat}') - marked irrelevant")
+        
+        # Deduplicate: keep one entry per keyword (highest Search Volume)
+        seen = {}
+        deduped = []
+        for entry in results:
+            key = entry.get('keyword', '').strip().lower()
+            sv = safe_int(entry.get('Search Volume', 0))
+            if key not in seen or sv > seen[key]['sv']:
+                seen[key] = {'entry': entry, 'sv': sv}
+        
+        deduped = [v['entry'] for v in seen.values()]
+        
+        # Re-sort by Search Volume descending
+        deduped.sort(key=lambda x: safe_int(x.get('Search Volume')), reverse=True)
+        
+        if changes_branded or changes_irrelevant:
+            logger.info(f"Duplicate keyword resolution: {changes_branded} → branded, "
+                       f"{changes_irrelevant} → irrelevant, "
+                       f"{len(results)} → {len(deduped)} after dedup")
+        
+        return deduped
     
     def _create_summary(self, title: str, bullets: List[str]) -> List[str]:
         """Create product summary"""
