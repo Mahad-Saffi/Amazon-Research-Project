@@ -318,6 +318,8 @@ function displayTabContent(tab, data) {
     
     if (tab === 'seo') {
         displaySEOTab(container, data);
+    } else if (tab === 'roots') {
+        displayRootGroupsTab(container, data);
     } else if (tab === 'keywords') {
         displayKeywordsTab(container, data);
     }
@@ -681,6 +683,104 @@ function displayKeywordsTab(container, data) {
                 <div style="font-size: 48px; margin-bottom: 16px;">🔑</div>
                 <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Keyword Analysis</div>
                 <div style="font-size: 14px;">Detailed keyword table view (coming soon)</div>
+            </div>
+        </div>
+    `;
+}
+
+function displayRootGroupsTab(container, data) {
+    const rootGroups = data.root_keyword_groups;
+    
+    if (!rootGroups || rootGroups.length === 0) {
+        container.innerHTML = `
+            <div class="card">
+                <div class="card-content" style="text-align: center; padding: 60px; color: #64748b;">
+                    <div style="font-size: 48px; margin-bottom: 16px;">🌿</div>
+                    <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">No Root Keyword Groups</div>
+                    <div style="font-size: 14px;">Root keyword grouping is only available for relevant keywords</div>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    // Calculate summary stats
+    const bigramGroups = rootGroups.filter(g => g.root_type === 'bigram');
+    const unigramGroups = rootGroups.filter(g => g.root_type === 'unigram');
+    const totalKeywords = rootGroups.reduce((sum, g) => sum + g.frequency, 0);
+    
+    let html = `
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <span>🌿</span> Root Keyword Groups
+                </div>
+                <div class="card-description">
+                    Relevant keywords grouped by root words — bigrams first, then unigrams. Each keyword appears in only one group.
+                </div>
+            </div>
+            <div class="card-content">
+                <div class="root-groups-summary">
+                    <div class="root-summary-stat">
+                        <div class="value">${rootGroups.length}</div>
+                        <div class="label">Root Groups</div>
+                    </div>
+                    <div class="root-summary-stat">
+                        <div class="value">${bigramGroups.length}</div>
+                        <div class="label">Bigram Roots</div>
+                    </div>
+                    <div class="root-summary-stat">
+                        <div class="value">${unigramGroups.length}</div>
+                        <div class="label">Unigram Roots</div>
+                    </div>
+                    <div class="root-summary-stat">
+                        <div class="value">${totalKeywords}</div>
+                        <div class="label">Total Keywords</div>
+                    </div>
+                </div>
+                <div class="root-groups-grid">
+                    ${rootGroups.map(group => renderRootGroupCard(group)).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+function renderRootGroupCard(group) {
+    const rootType = group.root_type;
+    const rootLabel = group.root === '_other' ? 'Other' : group.root;
+    const badgeLabel = rootType === 'unclaimed' ? 'other' : rootType;
+    
+    // Sort keywords by search volume descending
+    const sortedKeywords = [...group.keywords].sort((a, b) => {
+        const svA = parseInt(String(a['Search Volume'] || '0').replace(/,/g, '')) || 0;
+        const svB = parseInt(String(b['Search Volume'] || '0').replace(/,/g, '')) || 0;
+        return svB - svA;
+    });
+    
+    return `
+        <div class="root-group-card">
+            <div class="root-group-header ${rootType}">
+                <div>
+                    <div class="root-group-title">${rootLabel}</div>
+                    <div class="root-group-count">${group.frequency} keyword${group.frequency !== 1 ? 's' : ''}</div>
+                </div>
+                <span class="root-group-badge ${rootType}">${badgeLabel}</span>
+            </div>
+            <div class="root-group-keywords">
+                ${sortedKeywords.map(kw => {
+                    const sv = parseInt(String(kw['Search Volume'] || '0').replace(/,/g, '')) || 0;
+                    const category = kw.category || '';
+                    return `
+                        <div class="root-keyword-item">
+                            <span class="root-keyword-text" title="${kw.keyword}">${kw.keyword}</span>
+                            <span class="root-keyword-sv">${sv.toLocaleString()}</span>
+                            <span class="root-keyword-category ${category}">${category.replace('_', ' ')}</span>
+                        </div>
+                    `;
+                }).join('')}
             </div>
         </div>
     `;

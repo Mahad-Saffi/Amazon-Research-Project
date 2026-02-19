@@ -18,6 +18,7 @@ from api.services.verification_service import VerificationService
 from api.services.enhanced_categorization_service import EnhancedCategorizationService
 from api.services.direct_verification_service import DirectVerificationService
 from api.services.asin_validator import ASINValidator
+from api.services.keyword_root_analyzer import KeywordRootAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ class ResearchPipeline:
         self.enhanced_categorization_service = EnhancedCategorizationService()
         self.direct_verification_service = DirectVerificationService()
         self.asin_validator = ASINValidator()
+        self.keyword_root_analyzer = KeywordRootAnalyzer()
         self.run_logger: Optional[RunLogger] = None
     
     async def run_complete_pipeline(
@@ -298,6 +300,9 @@ class ResearchPipeline:
             # Post-processing: resolve duplicate keywords across categories
             final_results = self._resolve_duplicate_keywords(final_results)
             
+            # Group relevant keywords by root words (bigrams first, then unigrams)
+            root_keyword_groups = self.keyword_root_analyzer.group_by_roots(final_results)
+            
             # Save results
             csv_filename = self._save_results(final_results, validated_asin)
             
@@ -356,6 +361,7 @@ class ResearchPipeline:
                 "csv_filename": csv_filename,
                 "log_file": self.run_logger.get_log_file_path() if self.run_logger else None,
                 "seo_optimization": seo_optimization_result,  # New field
+                "root_keyword_groups": self._serialize_root_groups(root_keyword_groups),
                 "metadata": self._create_metadata(
                     validated_asin, marketplace, top_10_roots,
                     len(design_rows), len(revenue_rows),
@@ -584,6 +590,29 @@ class ResearchPipeline:
                        f"{len(results)} → {len(deduped)} after dedup")
         
         return deduped
+    
+    def _serialize_root_groups(self, root_groups: List[Dict]) -> List[Dict]:
+        """
+        Serialize root keyword groups for JSON response.
+        Each group contains the root, type, count, and list of keyword dicts.
+        """
+        serialized = []
+        for group in root_groups:
+            serialized.append({
+                'root': group['root'],
+                'root_type': group['root_type'],
+                'frequency': group['frequency'],
+                'keywords': [
+                    {
+                        'keyword': kw.get('keyword', ''),
+                        'category': kw.get('category', ''),
+                        'Search Volume': kw.get('Search Volume', ''),
+                        'relevance_score': kw.get('relevance_score', 0),
+                    }
+                    for kw in group.get('keywords', [])
+                ]
+            })
+        return serialized
     
     def _create_summary(self, title: str, bullets: List[str]) -> List[str]:
         """Create product summary"""
