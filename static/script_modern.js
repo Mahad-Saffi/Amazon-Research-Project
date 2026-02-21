@@ -329,12 +329,13 @@ function displaySEOTab(container, data) {
     const seoData = data.seo_optimization;
     
     if (!seoData || !seoData.success) {
+        const reason = seoData?.error || 'Enable "Include SEO Optimization" to see optimized title and bullets';
         container.innerHTML = `
             <div class="card">
                 <div class="card-content" style="text-align: center; padding: 60px; color: #64748b;">
                     <div style="font-size: 48px; margin-bottom: 16px;">📝</div>
                     <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">SEO Optimization Not Available</div>
-                    <div style="font-size: 14px;">Enable "Include SEO Optimization" to see optimized title and bullets</div>
+                    <div style="font-size: 14px;">${reason}</div>
                 </div>
             </div>
         `;

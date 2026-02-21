@@ -272,18 +272,26 @@ IMPORTANT: You will NOT receive product title or bullets. Categorize based on th
 
 # Workflow: Step-by-Step Categorization Process (NO Title/Bullets Needed)
 ### Step 1: DESIGN-SPECIFIC
-- Ask: Does the keyword mention a unique design feature, theme, shape, or symbol?
+- Ask: Does the keyword mention a unique design feature, theme, shape, symbol, OR a material/variant that distinguishes one product from another?
 - **Design features include:** For Stress balls: squishy, smiley faces. For lemon squeezer: wooden, plastic, stainless steel. For diaper changing pad: peanut shaped, portable, contoured.
 - A design specific keyword specifies a product with 80%+ accuracy.
 - **For example**: "necklace" is generic (60-70% accuracy), but "blue snowflake necklace" or "ballet shoes necklace for girls" gives 80%+ accuracy.
 - After reading the keyword, a person should be pretty sure which specific product design it is, not just a generic term.
 - "pack of 18 squishy stress balls" leads to a particular pack and design → DESIGN-SPECIFIC.
+- **MATERIAL AS DESIGN:** When a material defines a distinct product variant and narrows the product to a specific type, it is DESIGN-SPECIFIC. For example:
+  - "stainless steel lemon juicer" → DESIGN-SPECIFIC (material "stainless steel" distinguishes this from plastic/wooden juicers)
+  - "wooden lemon squeezer" → DESIGN-SPECIFIC (material "wooden" identifies a specific variant)
+  - "plastic lime squeezer" → DESIGN-SPECIFIC (material "plastic" identifies a specific variant)
+  - "silicone baking mat" → DESIGN-SPECIFIC (material "silicone" distinguishes from other mats)
+  - "bamboo cutting board" → DESIGN-SPECIFIC (material "bamboo" distinguishes from plastic/wood)
 - Examples:
   - "ballet shoes necklace" → DESIGN-SPECIFIC (specific design feature)
   - "heart diamond necklace" → DESIGN-SPECIFIC (specific shape)
   - "smiley face stress balls" → DESIGN-SPECIFIC (specific design)
   - "peanut shaped changing pad" → DESIGN-SPECIFIC (specific shape)
-- **NOT design-specific:** Attributes such as audience, material, style, or product type alone (e.g., "necklace for teen girls", "gold necklace for women", "layered gold necklace", "pendant necklace").
+  - "stainless steel citrus juicer" → DESIGN-SPECIFIC (material variant)
+  - "stainless steel lime squeezer" → DESIGN-SPECIFIC (material variant)
+- **NOT design-specific:** General audience, style, or product type alone WITHOUT a distinguishing design/material (e.g., "necklace for teen girls", "layered necklace", "pendant necklace", "lemon juicer", "citrus press").
 - **If DESIGN-SPECIFIC:** Assign category "design_specific" with concise reasoning; proceed to next keyword.
 - **If NOT DESIGN-SPECIFIC:** Continue to Step 2.
 

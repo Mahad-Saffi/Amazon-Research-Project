@@ -173,6 +173,23 @@ class ResearchPipeline:
             product_bullets = scrape_result["bullets"]
             scraped_data = scrape_result["data"]
             
+            if not product_title or not product_bullets:
+                run_log.error(
+                    "Scraper returned empty product data after retries — "
+                    "Amazon may have served a captcha/anti-bot page. "
+                    f"Title empty: {not product_title}, Bullets empty: {not product_bullets}"
+                )
+                return {
+                    "success": False,
+                    "error": (
+                        "Could not extract product title and bullet points from Amazon. "
+                        "Amazon may be blocking requests with a captcha page. "
+                        "Please try again in a few minutes."
+                    ),
+                    "scraped_data": scraped_data,
+                    "log_file": self.run_logger.get_log_file_path() if self.run_logger else None
+                }
+            
             if progress_callback:
                 await progress_callback(50, f"Product scraped: {len(product_bullets)} bullets found")
             
@@ -350,8 +367,16 @@ class ResearchPipeline:
             else:
                 if not include_seo_optimization:
                     run_log.info("SEO optimization skipped (not enabled)")
+                    seo_optimization_result = {
+                        'success': False,
+                        'error': 'SEO optimization was not enabled'
+                    }
                 else:
                     run_log.warning("SEO optimization skipped (missing title or bullets)")
+                    seo_optimization_result = {
+                        'success': False,
+                        'error': 'Product title or bullets could not be scraped from Amazon. SEO optimization requires product data.'
+                    }
             
             return {
                 "success": True,
@@ -397,7 +422,12 @@ class ResearchPipeline:
         return design_relevancy, revenue_relevancy
     
     def _apply_validation(self, categorizations, validation_checks):
-        """Apply validation results to categorizations"""
+        """Apply validation results to categorizations.
+        
+        IMPORTANT: design_specific keywords are NEVER downgraded by validation.
+        They have already been identified as having a specific design feature
+        and should not be overridden by the irrelevant agent.
+        """
         irrelevant_lookup = {
             check.get('keyword', '').lower(): check 
             for check in validation_checks 
@@ -407,6 +437,10 @@ class ResearchPipeline:
         for cat in categorizations:
             keyword_lower = cat.get('keyword', '').lower()
             if keyword_lower in irrelevant_lookup:
+                # Never downgrade design_specific keywords
+                if cat.get('category') == 'design_specific':
+                    logger.debug(f"Skipping validation override for design_specific keyword: '{cat.get('keyword')}'")
+                    continue
                 irrelevant_info = irrelevant_lookup[keyword_lower]
                 cat['category'] = 'irrelevant'
                 cat['reasoning'] = irrelevant_info.get('reasoning', 'Does not match product')
@@ -429,10 +463,19 @@ class ResearchPipeline:
         return merged
     
     def _apply_verification(self, categorizations, verification_results):
-        """Apply verification results to categorizations"""
+        """Apply verification results to categorizations.
+        
+        IMPORTANT: design_specific keywords are NEVER downgraded by verification.
+        If a competitor_relevant keyword is verified as relevant but was originally
+        design_specific, it stays design_specific.
+        """
         for cat in categorizations:
             keyword = cat.get('keyword')
             if keyword in verification_results:
+                # Never downgrade design_specific keywords
+                if cat.get('category') == 'design_specific':
+                    logger.debug(f"Skipping verification override for design_specific keyword: '{keyword}'")
+                    continue
                 result = verification_results[keyword]
                 if result['verdict'] == 'relevant':
                     cat['category'] = 'relevant'
@@ -562,7 +605,7 @@ class ResearchPipeline:
                     entry['brand_status'] = 'Branded'
             # Conflicting categories → irrelevant (only if not branded)
             elif key in conflicting_keywords:
-                if entry.get('category') != 'irrelevant':
+                if entry.get('category') not in ('irrelevant', 'design_specific'):
                     changes_irrelevant += 1
                     original_cat = entry.get('category', '')
                     entry['category'] = 'irrelevant'
