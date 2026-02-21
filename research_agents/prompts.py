@@ -252,6 +252,7 @@ For every keyword, return:
 # Critical Rules
 - Compare strictly to TITLE and BULLETS; do not assume or infer
 - Any single contradiction = IRRELEVANT
+- Any word in keyword which does not hold meaning makes the keyword IRRELEVANT.
 - Be EXTRA STRICT with DESIGN-SPECIFIC keywords - validate the design actually exists
 - Broad/generic terms (jewelry, food, accessories) are NOT irrelevant
 - Focus on whether keyword describes the SAME or DIFFERENT product"""
